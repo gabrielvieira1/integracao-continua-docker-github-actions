@@ -87,3 +87,124 @@ docker run -e HOST=localhost -e PORT=5432 -e DB_USER=seu_usuario -e DB_PASSWORD=
 - **Use credenciais reais como valores padrão (fallback)**
 
 ⚠️ **IMPORTANTE**: Este projeto foi configurado para **falhar** se as variáveis de ambiente não estiverem definidas, impedindo o uso acidental de credenciais padrão inseguras.
+
+
+
+# 🚀 Guia do Makefile
+
+Este Makefile fornece comandos para testar e executar o projeto localmente, simulando o ambiente de CI/CD.
+
+## 📋 Setup Inicial
+
+```bash
+# Configuração inicial (cria .env se não existir)
+make setup
+
+# Verificar se .env existe
+make check-env
+
+# Ver todos os comandos disponíveis
+make help
+```
+
+## 🧪 Testando o Projeto
+
+### Teste Completo (Simula GitHub Actions)
+```bash
+# Simula exatamente o que acontece no CI
+make ci
+```
+
+Este comando executa:
+1. ✅ Limpa ambiente anterior
+2. 🐘 Inicia PostgreSQL
+3. ⏳ Aguarda banco ficar pronto
+4. 🔍 Executa linting
+5. 🔨 Compila aplicação
+6. 🧪 Executa testes
+
+### Testes Individuais
+```bash
+# Apenas testes
+make test
+
+# Testes no container
+make test-container
+
+# Apenas linting
+make lint
+
+# Apenas build
+make build
+```
+
+## 🐳 Gerenciamento Docker
+
+```bash
+# Iniciar todos os serviços
+make start
+
+# Iniciar apenas PostgreSQL
+make start-db
+
+# Parar serviços
+make stop
+
+# Ver status
+make status
+
+# Ver logs
+make logs
+```
+
+## 🧹 Limpeza
+
+```bash
+# Limpar dados do PostgreSQL
+make clean-db
+
+# Limpar tudo (containers, volumes, imagens)
+make clean
+```
+
+## 🔧 Troubleshooting
+
+### Erro: "Arquivo .env não encontrado"
+```bash
+make setup
+# Depois edite o .env com suas credenciais
+```
+
+### PostgreSQL não conecta
+```bash
+# Verificar se está rodando
+make status
+
+# Ver logs
+make logs
+
+# Reiniciar
+make stop && make start-db
+```
+
+### Testes falhando
+```bash
+# Verificar se banco está pronto
+make wait-db
+
+# Executar apenas os testes
+make test
+```
+
+## 🎯 Comandos Principais para Desenvolvimento
+
+```bash
+# Setup inicial
+make setup
+
+# Desenvolvimento diário
+make ci  # Executa pipeline completo
+
+# Debug
+make logs  # Ver logs dos serviços
+```
