@@ -1,8 +1,250 @@
-# integracao-continua-docker-github-actions
+# 🚀 Integração Contínua com Docker e GitHub Actions
+
+[![CI/CD Pipeline](https://github.com/gabrielvieira1/integracao-continua-docker-github-actions/actions/workflows/go.yml/badge.svg)](https://github.com/gabrielvieira1/integracao-continua-docker-github-actions/actions/workflows/go.yml)
+[![Docker Build](https://github.com/gabrielvieira1/integracao-continua-docker-github-actions/actions/workflows/Docker.yml/badge.svg)](https://github.com/gabrielvieira1/integracao-continua-docker-github-actions/actions/workflows/Docker.yml)
+
+Um projeto completo demonstrando **Integração Contínua (CI/CD)** usando **GitHub Actions**, **Docker**, **PostgreSQL** e **Go (Gin)**. Este projeto implementa um pipeline automatizado com testes, build, containerização e deploy.
+
+## 🏗️ Arquitetura do Projeto
+
+```
+📦 Projeto
+├── 🔄 CI/CD Pipeline (GitHub Actions)
+│   ├── 🧪 Testes automatizados
+│   ├── 🔍 Linting de código
+│   ├── 🔨 Build da aplicação
+│   └── 🐳 Build e push do Docker
+├── 🐳 Containerização (Docker)
+│   ├── 📄 Dockerfile otimizado
+│   ├── 🐘 PostgreSQL container
+│   └── 🌐 Aplicação Go containerizada
+└── 🛡️ Segurança
+    ├── 🔐 GitHub Secrets
+    ├── 🚫 Zero credenciais hardcoded
+    └── ✅ Variáveis de ambiente seguras
+```
+
+## 🔧 Stack Tecnológica
+
+- **Backend**: Go (Gin Framework)
+- **Banco de Dados**: PostgreSQL
+- **ORM**: GORM
+- **Containerização**: Docker & Docker Compose
+- **CI/CD**: GitHub Actions
+- **Testes**: Go testing + Testify
+- **Linting**: golangci-lint
+- **Registry**: Docker Hub
+
+## 🚀 Workflows Implementados
+
+### 1. **Workflow Principal (`go.yml`)**
+```yaml
+Triggers: Push/PR em qualquer branch
+┌─────────────────────────────────────┐
+│ 🧪 JOB: TEST                       │
+│ ├─ Setup Go (matrix: 1.21, 1.20)   │
+│ ├─ Build aplicação Go              │
+│ ├─ Build PostgreSQL container      │
+│ ├─ Aguarda DB ficar pronto         │
+│ └─ Executa testes integrados       │
+├─────────────────────────────────────┤
+│ 🔨 JOB: BUILD                      │
+│ ├─ Compila aplicação               │
+│ └─ Upload artifact para Docker job │
+├─────────────────────────────────────┤
+│ 🐳 JOB: DOCKER                     │
+│ └─ Chama workflow Docker.yml       │
+└─────────────────────────────────────┘
+```
+
+### 2. **Workflow Docker (`Docker.yml`)**
+```yaml
+Trigger: Workflow call do go.yml
+┌─────────────────────────────────────┐
+│ 🐳 JOB: DOCKER                     │
+│ ├─ Download artifact (binário Go)   │
+│ ├─ Login no Docker Hub             │
+│ ├─ Build imagem Docker             │
+│ ├─ Push para Docker Hub            │
+│ └─ Mostra comandos de deploy       │
+└─────────────────────────────────────┘
+```
+
+## 🧪 Como Testar os Workflows
+
+### **Método 1: Testando via Git Push**
+```bash
+# Qualquer push irá triggar o workflow completo
+git add .
+git commit -m "feat: testando pipeline CI/CD"
+git push origin main
+
+# Acompanhe o progresso em:
+# https://github.com/seu-usuario/seu-repo/actions
+```
+
+### **Método 2: Testando Pull Request**
+```bash
+# Crie uma nova branch
+git checkout -b feature/teste-workflow
+
+# Faça mudanças e push
+git add .
+git commit -m "test: validando PR workflow"
+git push origin feature/teste-workflow
+
+# Crie PR no GitHub - workflow será executado automaticamente
+```
+
+### **Método 3: Simulação Local com Makefile**
+```bash
+# Simula exatamente o pipeline do GitHub Actions
+make ci
+
+# Ou comandos individuais:
+make lint          # Linting (como no CI)
+make test          # Testes integrados
+make build-docker  # Build Docker local
+```
+
+### **Método 4: Workflow Dispatch (Manual)**
+No GitHub:
+1. Vá em **Actions** → **Go** workflow
+2. Clique **Run workflow** 
+3. Selecione branch e execute
+
+## 📊 Monitoramento e Debug
+
+### **Visualizando Logs dos Workflows**
+```bash
+# No GitHub Actions, cada job mostra:
+🧪 Testes: Resultados detalhados dos testes Go
+🔍 Linting: Problemas de código encontrados  
+🔨 Build: Compilação e artifacts gerados
+🐳 Docker: Build e push para registry
+```
+
+### **Debugando Falhas Localmente**
+```bash
+# Se workflow falhar, replique localmente:
+make validate-env  # Verifica configuração
+make show-env      # Mostra variáveis (sem senhas)
+make ci            # Executa pipeline completo
+make logs          # Logs dos containers
+```
+
+### **Status dos Workflows**
+- ✅ **Success**: Pipeline completo executado
+- ❌ **Failed**: Erro em algum step (ver logs)
+- 🟡 **In Progress**: Workflow executando
+- ⏸️ **Skipped**: Conditions não atendidas
+
+## 🎯 Cenários de Teste dos Workflows
+
+### **🧪 Cenário 1: Teste de Integração Completa**
+```bash
+# Simula uma feature completa
+git checkout -b feature/nova-funcionalidade
+# Modifique código da aplicação
+make ci  # Testa localmente primeiro
+git push origin feature/nova-funcionalidade
+# Crie PR e observe pipeline completo
+```
+
+### **🔨 Cenário 2: Teste de Build e Deploy**
+```bash
+# Testa apenas build e containerização
+git checkout main
+git tag v1.0.0  # Cria tag para versioning
+git push origin v1.0.0
+# Workflow irá buildar com tag específica
+```
+
+### **🐳 Cenário 3: Teste de Docker Registry**
+```bash
+# Verifica se imagem foi publicada corretamente
+docker pull seu-username/go_ci:main
+docker run -p 8000:8000 seu-username/go_ci:main
+```
+
+### **⚡ Cenário 4: Teste de Rollback**
+```bash
+# Simula falha e correção
+echo "código com erro" >> main.go
+git commit -am "fix: corrigindo erro"
+git push origin main
+# Workflow falhará, corrija e push novamente
+```
+
+## 🔍 Troubleshooting Específico para CI/CD
+
+### **Workflow não executa**
+- ✅ Verifique se arquivo `.yml` está em `.github/workflows/`
+- ✅ Confirme sintaxe YAML válida
+- ✅ Check se branch/event triggers estão corretos
+
+### **Docker build falha**
+- ✅ Verifique se artifact foi gerado no job anterior
+- ✅ Confirme que Dockerfile pode acessar `./main`
+- ✅ Teste build localmente: `make build-docker`
+
+### **Push para Docker Hub falha**
+- ✅ Repositório existe no Docker Hub?
+- ✅ Secrets `USERNAME_DOCKER_HUB` e `PASSWORD_DOCKER_HUB` corretos?
+- ✅ Token tem permissões de write?
+
+### **Testes falham no CI mas passam localmente**
+- ✅ Variáveis de ambiente diferentes
+- ✅ PostgreSQL versão/configuração
+- ✅ Dependências/versões Go diferentes
+
+## 📈 Melhorias Futuras
+
+- [ ] **Cache de dependências Go** para builds mais rápidos
+- [ ] **Testes de segurança** com ferramentas como Snyk
+- [ ] **Deploy automático** para staging/production
+- [ ] **Notificações** Slack/Discord para builds
+- [ ] **Matriz de testes** com diferentes versões PostgreSQL
+- [ ] **Análise de cobertura** de código
+- [ ] **Testes de performance** automatizados
+
+## 🏆 Resultado Final dos Workflows
+
+### **✅ Pipeline de Sucesso Produz:**
+1. **🧪 Relatório de Testes**: Todos os testes Go passando
+2. **🔍 Relatório de Linting**: Código seguindo padrões
+3. **📦 Artifact**: Binário Go compilado
+4. **🐳 Imagem Docker**: Publicada no Docker Hub
+5. **📋 Comandos Deploy**: Prontos para produção
+
+### **🔗 Links Úteis após Deploy:**
+```bash
+# Imagem Docker disponível em:
+https://hub.docker.com/r/seu-username/go_ci
+
+# Executar em qualquer ambiente:
+docker run -e DB_USER=user -e DB_PASSWORD=pass -e DB_NAME=db \
+  -p 8000:8000 seu-username/go_ci:latest
+
+# API estará disponível em:
+http://localhost:8000
+```
+
+### **📊 Métricas de Sucesso:**
+- ⏱️ **Tempo de Build**: ~3-5 minutos
+- 🧪 **Coverage**: >80% (configurável)
+- 🐳 **Imagem Size**: <50MB (otimizada)
+- 🔄 **Frequency**: A cada push/PR
+
+---
+
+**🎉 Parabéns! Você agora tem um pipeline CI/CD completo e funcional!**
+
+Para mais detalhes sobre comandos locais, consulte as seções do Makefile abaixo.
 
 
 
-# Configuração de GitHub Secrets
+## Configuração de GitHub Secrets
 
 ⚠️ **IMPORTANTE PARA SEGURANÇA**: Este projeto foi configurado para NÃO ter credenciais hardcoded no código. Todas as variáveis sensíveis devem ser configuradas via GitHub Secrets.
 
@@ -32,7 +274,7 @@ Para usar environments no GitHub Actions, vá em **Settings** → **Environments
 
 ⚠️ **IMPORTANTE**: As variáveis de ambiente são **obrigatórias**. Sem elas, o docker-compose falhará.
 
-### Opção 1: Arquivo .env (Recomendado)
+### Opção 1: Arquivo .env (Recomendado para desenvolvimento local apenas)
 1. Copie o arquivo `.env.example` para `.env`:
    ```bash
    cp .env.example .env
@@ -54,13 +296,6 @@ Para usar environments no GitHub Actions, vá em **Settings** → **Environments
 ### Opção 2: Variáveis de ambiente diretas
 ```bash
 DB_USER=seu_usuario DB_PASSWORD=sua_senha DB_NAME=seu_banco docker-compose up -d
-```
-
-### Para desenvolvimento local apenas:
-Se você quiser usar credenciais simples apenas para desenvolvimento:
-```bash
-cp .env.local.example .env
-docker-compose up -d
 ```
 
 ## Como executar a imagem de produção
