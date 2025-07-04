@@ -242,8 +242,6 @@ http://localhost:8000
 
 Para mais detalhes sobre comandos locais, consulte as seções do Makefile abaixo.
 
-
-
 ## Configuração de GitHub Secrets
 
 ⚠️ **IMPORTANTE PARA SEGURANÇA**: Este projeto foi configurado para NÃO ter credenciais hardcoded no código. Todas as variáveis sensíveis devem ser configuradas via GitHub Secrets.
@@ -322,7 +320,6 @@ docker run -e HOST=localhost -e PORT=5432 -e DB_USER=seu_usuario -e DB_PASSWORD=
 - **Use credenciais reais como valores padrão (fallback)**
 
 ⚠️ **IMPORTANTE**: Este projeto foi configurado para **falhar** se as variáveis de ambiente não estiverem definidas, impedindo o uso acidental de credenciais padrão inseguras.
-
 
 
 # 🚀 Guia do Makefile
@@ -443,3 +440,20 @@ make ci  # Executa pipeline completo
 # Debug
 make logs  # Ver logs dos serviços
 ```
+
+## 🤔 How to contribute
+
+- Make a fork;
+- Clone the forked repository;
+- Create a branch with your feature: `git checkout -b my-feature`;
+- Commit changes: `git commit -m 'feat: My new feature'`;
+- Make a push to your branch: `git push -u origin my-feature`;
+- Create a PR from your branch to my branch.
+
+After merging your receipt request to done, you can delete a branch from yours.
+
+## :memo: License
+
+This project is under the MIT license. See the [LICENSE](LICENSE) for details.
+
+Made with ♥ by Gabriel Vieira :wave: [Get in touch!](https://www.linkedin.com/in/bielvieira/)`
