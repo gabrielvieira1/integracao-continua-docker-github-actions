@@ -72,6 +72,12 @@ build: validate-env
 	@echo "🔨 Compilando aplicação Go..."
 	go build -v -o main main.go
 
+# Build completo com Docker
+.PHONY: build-docker
+build-docker: build
+	@echo "🐳 Fazendo build do Docker..."
+	docker compose build
+
 # Executar testes (simula ambiente CI)
 .PHONY: test
 test: start-db wait-db validate-env
@@ -111,12 +117,12 @@ clean: stop
 
 # Simular pipeline CI completo
 .PHONY: ci
-ci: clean start-db wait-db lint build test
+ci: clean build start-db wait-db lint test
 	@echo "✅ Pipeline CI executado com sucesso!"
 
 # Simular pipeline CI com containers
 .PHONY: ci-container
-ci-container: clean start lint test-container
+ci-container: clean build start lint test-container
 	@echo "✅ Pipeline CI com containers executado com sucesso!"
 
 # Logs dos serviços
