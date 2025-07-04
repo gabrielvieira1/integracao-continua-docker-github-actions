@@ -1,0 +1,75 @@
+name: Go
+
+on:
+  push:
+    branches: [ '*' ]
+  pull_request:
+    branches: [ '*' ]
+
+jobs:
+
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      # Variáveis para docker-compose e aplicação Go
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      # Configurações de conexão
+      HOST: localhost
+      PORT: 5432
+    strategy:
+      matrix:
+        go_version: ['1.18', '1.17', '>=1.18']
+        os: ['ubuntu-latest', 'ubuntu-18.04']
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go_version }}
+      
+    - name: Build-DB
+      run: docker-compose build
+      
+    - name: Create-DB
+      run: docker-compose up -d
+      
+    - name: Wait for PostgreSQL
+      run: |
+        echo "Aguardando PostgreSQL iniciar..."
+        for i in {1..30}; do
+          if docker-compose exec -T postgres pg_isready -U ${DB_USER} -h localhost; then
+            echo "PostgreSQL está pronto!"
+            break
+          fi
+          echo "Tentativa $i/30..."
+          sleep 2
+        done
+
+    - name: Test
+      run: go test -v main_test.go 
+      
+  
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: go build -v main.go
+      
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.0
+      with:
+    # Artifact name
+        name: programa
+    # A file, directory or wildcard pattern that describes what to upload
+        path: main
+
+
+  docker:
+    needs: build
+    uses: ./.github/workflows/Docker.yml
+    secrets: inherit

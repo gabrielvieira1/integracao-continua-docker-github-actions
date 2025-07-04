@@ -26,7 +26,43 @@ go.work.sum
 
 # env file
 .env
+.env.local
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Dados do PostgreSQL local
+postgres-data/
+
+# Binários Go
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Arquivos de teste
+*.test
+
+# Arquivos de coverage
+*.out
+
+# Diretório de dependências do Go
+vendor/
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
