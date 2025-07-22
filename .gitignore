@@ -31,6 +31,9 @@ go.work.sum
 # Dados do PostgreSQL local
 postgres-data/
 
+# LocalStack volume data
+volume/
+
 # Binários Go
 main
 *.exe

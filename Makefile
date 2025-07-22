@@ -1,5 +1,4 @@
-# Makefile para projeto Go com Docker e GitHub Actions
-# Versão simplificada e organizada
+# Makefile para projeto Go com Docker
 
 APP_NAME=go_ci
 DOCKER_IMAGE=gabrielvieira/go_ci
@@ -47,8 +46,8 @@ setup:
 
 .PHONY: build build-linux
 build: validate-env
-	@echo "🔨 Compilando aplicação..."
-	go build -v -o main main.go
+	@echo "🔨 Compilando aplicação (estática)..."
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o main .
 	@echo "✅ Build concluído!"
 
 build-linux: validate-env
@@ -56,38 +55,49 @@ build-linux: validate-env
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '-w -s -extldflags "-static"' -v -o main main.go
 	@echo "✅ Build Linux concluído!"
 
-# === DOCKER ===
+# === DOCKER - PERFIS ===
 
-.PHONY: start-db wait-db start stop clean
+.PHONY: dev deploy start-db stop clean
+dev: validate-env
+	@echo "� Iniciando ambiente de desenvolvimento..."
+	docker compose --profile dev up -d
+	@echo "✅ Ambiente dev rodando em http://localhost:8000"
+	@echo "📊 PgAdmin: http://localhost:54321 (admin@email.com / 123456)"
+
+deploy: build-linux validate-env
+	@echo "🚀 Simulando deploy (EC2 + RDS)..."
+	docker compose --profile deploy up -d
+	@echo "⏳ Aguardando aplicação..."
+	@sleep 20
+	@echo "✅ Deploy simulado rodando em http://localhost:8080"
+	@curl -s http://localhost:8080/alunos > /dev/null && echo "✅ API funcionando!" || echo "⚠️  Verificar logs"
+
 start-db: validate-env
-	@echo "🐘 Iniciando PostgreSQL..."
+	@echo "� Iniciando apenas PostgreSQL..."
 	docker compose up -d postgres
 
+stop:
+	@echo "⏹️  Parando todos os serviços..."
+	docker compose --profile dev --profile deploy down
+
+clean: stop
+	@echo "🧹 Limpeza completa..."
+	docker compose --profile dev --profile deploy down -v --rmi local
+	@rm -f main
+	@sudo rm -rf postgres-data/ 2>/dev/null || true
+
+# === TESTES ===
+
+.PHONY: test lint wait-db
 wait-db:
 	@echo "⏳ Aguardando PostgreSQL..."
 	@for i in $$(seq 1 30); do \
-		if docker compose exec -T postgres pg_isready -h localhost > /dev/null 2>&1; then \
+		if docker compose exec -T postgres_ci pg_isready -h localhost > /dev/null 2>&1; then \
 			echo "✅ PostgreSQL pronto!"; break; \
 		fi; \
 		echo "   Tentativa $$i/30..."; sleep 2; \
 	done
 
-start: validate-env
-	@echo "🚀 Iniciando todos os serviços..."
-	docker compose up -d
-
-stop:
-	@echo "⏹️  Parando serviços..."
-	docker compose down
-
-clean: stop
-	@echo "🧹 Limpeza completa..."
-	docker compose down -v --rmi local
-	sudo rm -rf postgres-data/ 2>/dev/null || true
-
-# === TESTES ===
-
-.PHONY: test lint
 test: start-db wait-db validate-env
 	@echo "🧪 Executando testes..."
 	@export $$(cat .env | grep -v '^#' | grep -v '^$$' | xargs) && go test -v main_test.go
@@ -102,61 +112,16 @@ lint:
 ci: clean build start-db wait-db lint test
 	@echo "✅ Pipeline CI executado com sucesso!"
 
-# === TESTES EC2 COM DOCKER ===
-
-.PHONY: start-ec2-test deploy-ec2-docker check-ec2-docker clean-ec2-test
-start-ec2-test: validate-env
-	@echo "🐳 Iniciando ambiente EC2 simulado..."
-	docker-compose -f docker-compose.vm-test.yml up -d
-	@sleep 10
-	@echo "✅ Ambiente pronto!"
-
-deploy-ec2-docker: build-linux start-ec2-test
-	@echo "🚀 Deploy EC2 simulado..."
-	docker cp main vm_test_ec2:/home/gabriel/
-	docker cp templates vm_test_ec2:/home/gabriel/ 2>/dev/null || true
-	docker cp assets vm_test_ec2:/home/gabriel/ 2>/dev/null || true
-	
-	@export $$(cat .env | grep -v '^#' | xargs) && \
-	docker exec vm_test_ec2 bash -c "\
-		cd /home/gabriel && \
-		export HOST=postgres && \
-		export DB_USER=$$DB_USER && \
-		export DB_PASSWORD=$$DB_PASSWORD && \
-		export DB_NAME=$$DB_NAME && \
-		export DB_PORT=5432 && \
-		export PORT=8000 && \
-		pkill -f './main' 2>/dev/null || true && \
-		chmod +x main && \
-		nohup ./main > app.log 2>&1 & \
-		sleep 3 && \
-		pgrep -f './main' > /dev/null && echo '✅ Aplicação rodando!' \
-	"
-
-check-ec2-docker:
-	@echo "🔍 Verificando aplicação..."
-	@docker exec vm_test_ec2 ps aux | grep './main' | grep -v grep || echo "⚠️  App não está rodando"
-	@curl -s http://localhost:8000/ > /dev/null && echo "✅ App responde!" || echo "❌ App não responde"
-
-clean-ec2-test:
-	@echo "🧹 Limpando ambiente EC2..."
-	docker-compose -f docker-compose.vm-test.yml down -v
-	docker image rm vm-test-image 2>/dev/null || true
-
 # === UTILITÁRIOS ===
 
-.PHONY: logs shell-ec2 status help
+.PHONY: logs status
 logs:
+	@echo "� Logs dos serviços:"
 	docker compose logs -f
-
-shell-ec2:
-	@echo "🔗 Conectando no container EC2..."
-	docker exec -it vm_test_ec2 bash
 
 status:
 	@echo "📊 Status dos serviços:"
-	docker compose ps
-	docker ps | grep vm_test_ec2 || echo "Container EC2: ❌ Parado"
+	@docker compose ps
 
 help:
 	@echo "📖 Comandos disponíveis:"
@@ -168,12 +133,13 @@ help:
 	@echo ""
 	@echo "  🔨 Build:"
 	@echo "    build              - Compilar aplicação"
-	@echo "    build-linux        - Compilar para Linux"
+	@echo "    build-linux        - Compilar para Linux (deploy)"
 	@echo ""
-	@echo "  🐳 Docker Local:"
-	@echo "    start-db           - Iniciar PostgreSQL"
-	@echo "    start              - Iniciar todos serviços"
-	@echo "    stop               - Parar serviços"
+	@echo "  🐳 Docker:"
+	@echo "    dev                - Ambiente desenvolvimento (http://localhost:8000)"
+	@echo "    deploy             - Simulação deploy EC2+RDS (http://localhost:8080)"
+	@echo "    start-db           - Apenas PostgreSQL"
+	@echo "    stop               - Parar todos os serviços"
 	@echo "    clean              - Limpeza completa"
 	@echo ""
 	@echo "  🧪 Testes:"
@@ -181,27 +147,10 @@ help:
 	@echo "    lint               - Executar linting"
 	@echo "    ci                 - Pipeline CI completo"
 	@echo ""
-	@echo "  🖥️  EC2 Simulado:"
-	@echo "    start-ec2-test     - Iniciar ambiente EC2"
-	@echo "    deploy-ec2-docker  - Deploy no EC2 simulado"
-	@echo "    check-ec2-docker   - Verificar deploy"
-	@echo "    shell-ec2          - Shell no container"
-	@echo "    clean-ec2-test     - Limpar ambiente EC2"
-	@echo ""
 	@echo "  📊 Utilitários:"
 	@echo "    status             - Status dos serviços"
 	@echo "    logs               - Ver logs"
 	@echo "    help               - Esta ajuda"
-	@echo ""
-	@echo "  🧪 Testes de Deployment:"
-	@echo "    test-deploy        - Testar estratégia de deployment"
 
 # Comando padrão
 .DEFAULT_GOAL := help
-
-# === TESTES DE DEPLOYMENT ===
-
-.PHONY: test-deploy
-test-deploy:
-	@echo "🧪 Testando estratégia de deployment..."
-	./test-deployment-strategy.sh
