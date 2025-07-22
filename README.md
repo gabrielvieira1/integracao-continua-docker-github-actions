@@ -70,6 +70,40 @@ Trigger: Workflow call do go.yml
 └─────────────────────────────────────┘
 ```
 
+## 🔄 Fluxo Visual do Pipeline
+
+```mermaid
+graph LR
+    A[👨‍💻 git push] --> B[🧪 Tests]
+    B --> C[🔨 Build]
+    C --> D[🐳 Docker]
+    D --> E[📤 Registry]
+    E --> F[🚀 Deploy]
+    
+    B -->|❌ Fail| G[🛑 Stop]
+    C -->|✅ Pass| H[📦 Artifact]
+    H --> D
+    
+    subgraph "🏭 CI/CD Pipeline"
+        B
+        C
+        D
+    end
+    
+    subgraph "🌐 Production"
+        E
+        F
+    end
+    
+    style A fill:#e1f5fe,stroke:#01579b
+    style G fill:#ffebee,stroke:#c62828
+    style F fill:#e8f5e8,stroke:#2e7d32
+```
+
+## 📋 Arquitetura Detalhada
+
+> 📖 **Para diagramas completos da infraestrutura**: Veja [ARCHITECTURE.md](./ARCHITECTURE.md)
+
 ## 🧪 Como Testar os Workflows
 
 ### **Método 1: Testando via Git Push**
@@ -440,6 +474,14 @@ make ci  # Executa pipeline completo
 # Debug
 make logs  # Ver logs dos serviços
 ```
+
+## 📖 Documentação Completa
+
+- **📋 [Resumo Executivo](EXECUTIVE_SUMMARY.md)** - Visão geral do projeto e benefícios
+- **🏗️ [Documentação de Arquitetura](ARCHITECTURE.md)** - Diagramas e fluxos detalhados
+- **☁️ [Guia de Deploy AWS](AWS_DEPLOYMENT_GUIDE.md)** - Estratégias EKS, ECS, EC2 e Load Testing
+- **🧪 [Guia de Testes Locais](LOCAL_TESTING_GUIDE.md)** - Como testar as estratégias localmente
+- **📊 [Guia de Visualizações](DIAGRAMS.md)** - Como visualizar os diagramas Mermaid
 
 ## 🤔 How to contribute
 

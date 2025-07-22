@@ -10,6 +10,7 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    environment: PROD
     env:
       # Variáveis para docker-compose e aplicação Go
       DB_USER: ${{ secrets.DB_USER }}
@@ -73,5 +74,31 @@ jobs:
 
   docker:
     needs: build
+    environment: PROD
     uses: ./.github/workflows/Docker.yml
     secrets: inherit
+    
+  # Deploy_EC2:
+  #   needs: build
+  #   environment: PROD
+  #   uses: ./.github/workflows/EC2.yml
+  #   secrets: inherit
+    
+  #Deploy_ECS:
+    # needs: docker
+    # environment: PROD
+    # uses: ./.github/workflows/ECS.yml
+    # secrets: inherit
+     
+  #LoadTest:
+    # needs: docker
+    # if: ${{ github.ref_name =='Homolog' }}
+    # environment: PROD
+    # uses: ./.github/workflows/LoadTest.yml
+    # secrets: inherit
+
+  # Deploy_EKS:
+  #   needs: docker
+  #   environment: PROD
+  #   uses: ./.github/workflows/EKS.yml
+  #   secrets: inherit

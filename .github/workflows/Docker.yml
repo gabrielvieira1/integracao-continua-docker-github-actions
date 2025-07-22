@@ -7,6 +7,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    environment: PROD
     steps:
     - uses: actions/checkout@v4
 
@@ -37,15 +38,15 @@ jobs:
     # Push is a shorthand for --output=type=registry
         push: true
     # List of tags
-        tags: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.ref_name}}
+        tags: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}
         
     # Deploy information with environment variables
     - name: Show deployment information
       run: |
-        echo "✅ Imagem criada com sucesso: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.ref_name}}"
+        echo "✅ Imagem criada com sucesso: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"
         echo ""
         echo "🚀 Para executar o container em produção, use:"
-        echo "docker run -e HOST=localhost -e PORT=5432 -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} -p 8000:8000 ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.ref_name}}"
+        echo "docker run -e HOST=localhost -e PORT=5432 -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} -p 8000:8000 ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"
         echo ""
         echo "📋 Ou usando docker-compose com arquivo .env:"
         echo "DB_USER=${{ secrets.DB_USER }}"
