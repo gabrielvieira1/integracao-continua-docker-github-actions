@@ -8,12 +8,26 @@ jobs:
     runs-on: ubuntu-latest
     environment: PROD
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download a Build Artifact
         uses: actions/download-artifact@v4
         with:
           # Artifact name
           name: programa
-      - uses: actions/checkout@v4
+
+      - name: Verify files before deploy
+        run: |
+          echo "=== Files in workspace ==="
+          ls -la
+          echo "=== Checking if main binary exists ==="
+          if [ -f "main" ]; then
+            echo "✅ main binary found"
+            chmod +x main
+          else
+            echo "❌ main binary not found"
+            exit 1
+          fi
 
       - name: Deploy to Staging server
         uses: easingthemes/ssh-deploy@main
@@ -38,5 +52,4 @@ jobs:
             export DB_NAME=${{ secrets.DB_NAME_PROD }}
             export DB_PORT=${{ secrets.DB_PORT_PROD }}
             export PORT=8000
-            chmod +x main
             nohup ./main > nohup.out 2> nohup.err < /dev/null &
