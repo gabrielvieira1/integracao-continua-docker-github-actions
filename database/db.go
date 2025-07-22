@@ -15,10 +15,17 @@ var (
 
 func ConectaComBancoDeDados() {
 	host := os.Getenv("HOST")
+	if host == "" {
+		host = "localhost"
+	}
+	
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	dbname := os.Getenv("DB_NAME")
 	dbport := os.Getenv("DB_PORT")
+	if dbport == "" {
+		dbport = "5432"
+	}
 	
 	// Debug (sem mostrar senha)
 	log.Printf("Conectando ao banco: host=%s user=%s dbname=%s port=%s", host, user, dbname, dbport)
