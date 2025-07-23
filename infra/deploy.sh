@@ -25,7 +25,7 @@ echo "   Database: $DB_HOST:$DB_PORT"
 
 # Configure kubectl
 echo "🔧 Configuring kubectl..."
-aws eks update-kubeconfig --region us-east-2 --name $CLUSTER_NAME
+aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
 
 # Create namespace
 echo "📁 Creating namespace..."
