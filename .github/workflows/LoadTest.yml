@@ -6,188 +6,188 @@ on:
       environment:
         required: true
         type: string
-        description: 'Environment to test (dev, staging, homolog, production)'
+        description: "Environment to test (dev, staging, homolog, production)"
       target_url:
         required: false
         type: string
-        description: 'Target URL for load testing (if not using Terraform)'
+        description: "Target URL for load testing (if not using Terraform)"
       users:
         required: false
         type: number
         default: 10
-        description: 'Number of concurrent users'
+        description: "Number of concurrent users"
       duration:
         required: false
         type: string
-        default: '60s'
-        description: 'Test duration'
+        default: "60s"
+        description: "Test duration"
 
 jobs:
   load-test:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-    
-    - name: Configure AWS Credentials
-      if: ${{ inputs.target_url == '' }}
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
-    
-    - name: Setup Environment Variables
-      run: |
-        case "${{ inputs.environment }}" in
-          "dev")
-            echo "TF_WORKSPACE=dev" >> $GITHUB_ENV
-            echo "TERRAFORM_DIR=Infra_CI/env/Dev" >> $GITHUB_ENV
-            ;;
-          "staging")
-            echo "TF_WORKSPACE=staging" >> $GITHUB_ENV
-            echo "TERRAFORM_DIR=Infra_CI/env/Staging" >> $GITHUB_ENV
-            ;;
-          "homolog")
-            echo "TF_WORKSPACE=homolog" >> $GITHUB_ENV
-            echo "TERRAFORM_DIR=Infra_CI/env/Homolog" >> $GITHUB_ENV
-            ;;
-          "production")
-            echo "TF_WORKSPACE=production" >> $GITHUB_ENV
-            echo "TERRAFORM_DIR=Infra_CI/env/Production" >> $GITHUB_ENV
-            ;;
-        esac
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Clone Infrastructure Repository
-      if: ${{ inputs.target_url == '' }}
-      run: git clone https://github.com/leollo98/Infra_CI
+      - name: Configure AWS Credentials
+        if: ${{ inputs.target_url == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ secrets.AWS_REGION_PROD || 'us-east-1' }}
 
-    - name: Setup Terraform
-      if: ${{ inputs.target_url == '' }}
-      uses: hashicorp/setup-terraform@v3.0.0
-      with:
-        terraform_version: ~1.0
+      - name: Setup Environment Variables
+        run: |
+          case "${{ inputs.environment }}" in
+            "dev")
+              echo "TF_WORKSPACE=dev" >> $GITHUB_ENV
+              echo "TERRAFORM_DIR=Infra_CI/env/Dev" >> $GITHUB_ENV
+              ;;
+            "staging")
+              echo "TF_WORKSPACE=staging" >> $GITHUB_ENV
+              echo "TERRAFORM_DIR=Infra_CI/env/Staging" >> $GITHUB_ENV
+              ;;
+            "homolog")
+              echo "TF_WORKSPACE=homolog" >> $GITHUB_ENV
+              echo "TERRAFORM_DIR=Infra_CI/env/Homolog" >> $GITHUB_ENV
+              ;;
+            "production")
+              echo "TF_WORKSPACE=production" >> $GITHUB_ENV
+              echo "TERRAFORM_DIR=Infra_CI/env/Production" >> $GITHUB_ENV
+              ;;
+          esac
 
-    - name: Terraform Init
-      if: ${{ inputs.target_url == '' }}
-      run: terraform -chdir=${{ env.TERRAFORM_DIR }} init
+      - name: Clone Infrastructure Repository
+        if: ${{ inputs.target_url == '' }}
+        run: git clone https://github.com/leollo98/Infra_CI
 
-    - name: Terraform Plan
-      if: ${{ inputs.target_url == '' }}
-      run: terraform -chdir=${{ env.TERRAFORM_DIR }} plan
+      - name: Setup Terraform
+        if: ${{ inputs.target_url == '' }}
+        uses: hashicorp/setup-terraform@v3.0.0
+        with:
+          terraform_version: ~1.0
 
-    - name: Terraform Apply
-      if: ${{ inputs.target_url == '' }}
-      run: terraform -chdir=${{ env.TERRAFORM_DIR }} apply -auto-approve
+      - name: Terraform Init
+        if: ${{ inputs.target_url == '' }}
+        run: terraform -chdir=${{ env.TERRAFORM_DIR }} init
 
-    - name: Get Load Balancer URL
-      if: ${{ inputs.target_url == '' }}
-      id: get-url
-      run: |
-        URL=$(terraform -chdir=${{ env.TERRAFORM_DIR }} output -raw IP_alb)
-        echo "target_url=http://$URL" >> $GITHUB_OUTPUT
-        echo "🌐 Target URL: http://$URL"
+      - name: Terraform Plan
+        if: ${{ inputs.target_url == '' }}
+        run: terraform -chdir=${{ env.TERRAFORM_DIR }} plan
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - name: Terraform Apply
+        if: ${{ inputs.target_url == '' }}
+        run: terraform -chdir=${{ env.TERRAFORM_DIR }} apply -auto-approve
 
-    - name: Install Load Testing Dependencies
-      run: |
-        pip install --upgrade pip
-        pip install locust requests
+      - name: Get Load Balancer URL
+        if: ${{ inputs.target_url == '' }}
+        id: get-url
+        run: |
+          URL=$(terraform -chdir=${{ env.TERRAFORM_DIR }} output -raw IP_alb)
+          echo "target_url=http://$URL" >> $GITHUB_OUTPUT
+          echo "🌐 Target URL: http://$URL"
 
-    - name: Create Load Test Script
-      run: |
-        cat > locustfile.py << 'EOF'
-        from locust import HttpUser, TaskSet, task, between
-        import logging
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-        class UserTasks(TaskSet):
-            @task(3)
-            def index(self):
-                """Test home page"""
-                response = self.client.get("/gui")
-                if response.status_code != 200:
-                    logging.error(f"Home page failed: {response.status_code}")
-            
-            @task(2)
-            def list_students(self):
-                """Test students list endpoint"""
-                response = self.client.get("/alunos")
-                if response.status_code != 200:
-                    logging.error(f"Students list failed: {response.status_code}")
-            
-            @task(1)
-            def health_check(self):
-                """Test health endpoint"""
-                response = self.client.get("/gui")
-                if response.status_code != 200:
-                    logging.error(f"Health check failed: {response.status_code}")
+      - name: Install Load Testing Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install locust requests
 
-        class WebsiteUser(HttpUser):
-            tasks = [UserTasks]
-            wait_time = between(1, 3)
-            
-            def on_start(self):
-                """Called when a user starts"""
-                logging.info(f"User started for environment: ${{ inputs.environment }}")
-        EOF
+      - name: Create Load Test Script
+        run: |
+          cat > locustfile.py << 'EOF'
+          from locust import HttpUser, TaskSet, task, between
+          import logging
 
-    - name: Wait for Application Startup
-      run: |
-        echo "⏳ Waiting for application to be ready..."
-        sleep 120
+          class UserTasks(TaskSet):
+              @task(3)
+              def index(self):
+                  """Test home page"""
+                  response = self.client.get("/gui")
+                  if response.status_code != 200:
+                      logging.error(f"Home page failed: {response.status_code}")
+              
+              @task(2)
+              def list_students(self):
+                  """Test students list endpoint"""
+                  response = self.client.get("/alunos")
+                  if response.status_code != 200:
+                      logging.error(f"Students list failed: {response.status_code}")
+              
+              @task(1)
+              def health_check(self):
+                  """Test health endpoint"""
+                  response = self.client.get("/gui")
+                  if response.status_code != 200:
+                      logging.error(f"Health check failed: {response.status_code}")
 
-    - name: Run Load Test
-      run: |
-        TARGET_URL="${{ inputs.target_url || steps.get-url.outputs.target_url }}"
-        echo "🚀 Starting load test against: $TARGET_URL"
-        echo "👥 Users: ${{ inputs.users }}"
-        echo "⏱️  Duration: ${{ inputs.duration }}"
-        echo "🌍 Environment: ${{ inputs.environment }}"
-        
-        locust -f locustfile.py \
-          --headless \
-          -u ${{ inputs.users }} \
-          -r 2 \
-          --run-time ${{ inputs.duration }} \
-          -H "$TARGET_URL" \
-          --html=load_test_report.html \
-          --csv=load_test_results
+          class WebsiteUser(HttpUser):
+              tasks = [UserTasks]
+              wait_time = between(1, 3)
+              
+              def on_start(self):
+                  """Called when a user starts"""
+                  logging.info(f"User started for environment: ${{ inputs.environment }}")
+          EOF
 
-    - name: Upload Load Test Results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: load-test-results-${{ inputs.environment }}
-        path: |
-          load_test_report.html
-          load_test_results_*.csv
+      - name: Wait for Application Startup
+        run: |
+          echo "⏳ Waiting for application to be ready..."
+          sleep 120
 
-    - name: Analyze Results
-      if: always()
-      run: |
-        echo "📊 Load Test Results Summary"
-        echo "Environment: ${{ inputs.environment }}"
-        echo "Users: ${{ inputs.users }}"
-        echo "Duration: ${{ inputs.duration }}"
-        
-        if [ -f "load_test_results_stats.csv" ]; then
-          echo "📈 Performance Stats:"
-          cat load_test_results_stats.csv
-        fi
-        
-        if [ -f "load_test_results_failures.csv" ]; then
-          echo "❌ Failures:"
-          cat load_test_results_failures.csv
-        fi
+      - name: Run Load Test
+        run: |
+          TARGET_URL="${{ inputs.target_url || steps.get-url.outputs.target_url }}"
+          echo "🚀 Starting load test against: $TARGET_URL"
+          echo "👥 Users: ${{ inputs.users }}"
+          echo "⏱️  Duration: ${{ inputs.duration }}"
+          echo "🌍 Environment: ${{ inputs.environment }}"
 
-    - name: Terraform Destroy
-      if: ${{ always() && inputs.target_url == '' }}
-      run: |
-        echo "🗑️  Cleaning up infrastructure for ${{ inputs.environment }}..."
-        terraform -chdir=${{ env.TERRAFORM_DIR }} destroy -auto-approve
+          locust -f locustfile.py \
+            --headless \
+            -u ${{ inputs.users }} \
+            -r 2 \
+            --run-time ${{ inputs.duration }} \
+            -H "$TARGET_URL" \
+            --html=load_test_report.html \
+            --csv=load_test_results
+
+      - name: Upload Load Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results-${{ inputs.environment }}
+          path: |
+            load_test_report.html
+            load_test_results_*.csv
+
+      - name: Analyze Results
+        if: always()
+        run: |
+          echo "📊 Load Test Results Summary"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Users: ${{ inputs.users }}"
+          echo "Duration: ${{ inputs.duration }}"
+
+          if [ -f "load_test_results_stats.csv" ]; then
+            echo "📈 Performance Stats:"
+            cat load_test_results_stats.csv
+          fi
+
+          if [ -f "load_test_results_failures.csv" ]; then
+            echo "❌ Failures:"
+            cat load_test_results_failures.csv
+          fi
+
+      - name: Terraform Destroy
+        if: ${{ always() && inputs.target_url == '' }}
+        run: |
+          echo "🗑️  Cleaning up infrastructure for ${{ inputs.environment }}..."
+          terraform -chdir=${{ env.TERRAFORM_DIR }} destroy -auto-approve

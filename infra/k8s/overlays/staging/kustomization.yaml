@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: go-api-staging
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
+
+images:
+  - name: go-api
+    newName: your-registry/go_ci
+    newTag: staging
+
+commonLabels:
+  environment: staging
+  
+replicas:
+  - name: go-api
+    count: 2

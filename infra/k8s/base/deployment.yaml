@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-api
+  labels:
+    app: go-api
+    component: backend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: go-api
+  template:
+    metadata:
+      labels:
+        app: go-api
+        component: backend
+    spec:
+      containers:
+      - name: go
+        image: go-api:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: HOST
+          valueFrom:
+            secretKeyRef:
+              name: database-config
+              key: host
+        - name: USER
+          valueFrom:
+            secretKeyRef:
+              name: database-config
+              key: username
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-config
+              key: password
+        - name: DBNAME
+          valueFrom:
+            secretKeyRef:
+              name: database-config
+              key: dbname
+        - name: DBPORT
+          valueFrom:
+            secretKeyRef:
+              name: database-config
+              key: port
+        - name: PORT
+          value: "8080"
+        
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Health checks usando o novo endpoint /health
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      
+      restartPolicy: Always

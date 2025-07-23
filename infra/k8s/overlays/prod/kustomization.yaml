@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: go-api-prod
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
+
+images:
+  - name: go-api
+    newName: your-registry/go_ci
+    newTag: prod
+
+commonLabels:
+  environment: prod
+  
+replicas:
+  - name: go-api
+    count: 5
