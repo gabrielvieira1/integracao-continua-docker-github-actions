@@ -19,7 +19,13 @@ jobs:
         run: aws ecs describe-task-definition --task-definition Tarefa_API-GO --query taskDefinition > task-definition.json
 
       - name: copia do task-definition
-        run: cp task-definition.json task-definition.json.old
+        run: |
+          cp task-definition.json task-definition.json.old
+          # Clean backup file to avoid enableFaultInjection error in rollback
+          if command -v jq &> /dev/null; then
+            jq 'del(.enableFaultInjection, .enableLogging, .pidMode, .ipcMode, .tags, .registeredAt, .registeredBy, .taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities)' task-definition.json.old > task-definition-clean.json
+            mv task-definition-clean.json task-definition.json.old
+          fi
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
@@ -37,6 +43,7 @@ jobs:
             PORT=8000
 
       - name: Deploy Amazon ECS task definition
+        id: deploy-task-def
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
@@ -49,7 +56,7 @@ jobs:
         run: |
           echo "REQUEST=0" >> $GITHUB_ENV
           sleep 30s
-          curl -f http://LB-API-Go-908865819.us-east-1.elb.amazonaws.com:8000/health || echo "REQUEST=1" >> $GITHUB_ENV
+          curl -f http://LB-API-GO-1633774237.us-east-1.elb.amazonaws.com:8000/health || echo "REQUEST=1" >> $GITHUB_ENV
 
       - name: Rollback if health check failed
         if: ${{ env.REQUEST != 0 }}
