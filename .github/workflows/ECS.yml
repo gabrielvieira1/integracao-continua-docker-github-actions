@@ -36,6 +36,12 @@ jobs:
           aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_FAMILY }} --query taskDefinition > ${BACKUP_FILE} || true
           echo "backup_filename=${BACKUP_FILE}" >> $GITHUB_OUTPUT
 
+      - name: Obter a Definição da Tarefa Ativa da AWS
+        run: |
+          echo "Buscando a Task Definition mais recente da família '${{ env.ECS_TASK_FAMILY }}'..."
+          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
+          echo "Arquivo task-definition.json criado dinamicamente para esta execução."
+
       - name: Preencher a nova imagem na Task Definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -80,7 +86,6 @@ jobs:
         run: |
           echo "🚨 Health check falhou! Iniciando rollback..."
           BACKUP_FILE=${{ steps.task-def-backup.outputs.backup_filename }}
-          # Verifica se o arquivo de backup realmente existe antes de tentar o rollback
           if [ -f "$BACKUP_FILE" ]; then
             echo "Usando o arquivo de backup: ${BACKUP_FILE}"
             aws ecs update-service \
