@@ -37,10 +37,10 @@ jobs:
             PORT=8000
 
       - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: Servico_API-Go
+          service: Tarefa_API-GO-service-1asu2h9i
           cluster: API-Go
           wait-for-service-stability: true
 
