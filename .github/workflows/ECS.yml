@@ -1,4 +1,4 @@
-name: Entrega continua
+name: Deploy to Amazon ECS
 
 on:
   workflow_call:
@@ -7,62 +7,89 @@ jobs:
   ECS:
     runs-on: ubuntu-latest
     environment: PROD
+
+    env:
+      AWS_REGION: us-east-1
+      ALB_NAME: api-go-dev-alb-app
+      ECS_CLUSTER_NAME: api-go-dev-ecs-cluster
+      ECS_SERVICE_NAME: api-go-dev-ecs-svc-app
+      ECS_TASK_FAMILY: api-go-dev-taskdef-app
+
     steps:
-      - name: configurando credenciais da AWS
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurando credenciais da AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Obtendo arquivo da tarefa
-        run: aws ecs describe-task-definition --task-definition Tarefa_API-GO --query taskDefinition > task-definition.json
-
-      - name: copia do task-definition
+      - name: Criar backup da Task Definition atual para Rollback
+        id: task-def-backup
         run: |
-          cp task-definition.json task-definition.json.old
-          # Clean backup file to avoid enableFaultInjection error in rollback
-          if command -v jq &> /dev/null; then
-            jq 'del(.enableFaultInjection, .enableLogging, .pidMode, .ipcMode, .tags, .registeredAt, .registeredBy, .taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities)' task-definition.json.old > task-definition-clean.json
-            mv task-definition-clean.json task-definition.json.old
-          fi
+          BACKUP_FILE="task-definition-backup-${{ github.run_number }}.json"
+          echo "Criando backup em: ${BACKUP_FILE}"
+          # Baixa a Task Definition ATUALMENTE em produção
+          # Adicionado '|| true' para não falhar se a task def ainda não existir na primeira execução
+          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_FAMILY }} --query taskDefinition > ${BACKUP_FILE} || true
+          echo "backup_filename=${BACKUP_FILE}" >> $GITHUB_OUTPUT
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Preencher a nova imagem na Task Definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: Go
-          image: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}
-          environment-variables: |
-            HOST=${{ secrets.DB_HOST_PROD }}
-            DB_USER=${{ secrets.DB_USER_PROD }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}
-            DB_NAME=${{ secrets.DB_NAME_PROD }}
-            DB_PORT=${{ secrets.DB_PORT_PROD }}
-            PORT=8000
+          image: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{ github.run_number }}
 
-      - name: Deploy Amazon ECS task definition
-        id: deploy-task-def
+      - name: Fazer Deploy da nova Task Definition no ECS
+        id: deploy-ecs
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: Tarefa_API-GO-service-1asu2h9i
-          cluster: API-Go
+          service: ${{ env.ECS_SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
           wait-for-service-stability: true
 
-      - name: Health Check Test
-        continue-on-error: true
+      - name: Obter o endereço DNS do Load Balancer
+        id: get-alb-dns
         run: |
-          echo "REQUEST=0" >> $GITHUB_ENV
-          sleep 30s
-          curl -f http://LB-API-GO-1633774237.us-east-1.elb.amazonaws.com:8000/health || echo "REQUEST=1" >> $GITHUB_ENV
+          DNS_NAME=$(aws elbv2 describe-load-balancers --names ${{ env.ALB_NAME }} --region ${{ env.AWS_REGION }} --query "LoadBalancers[0].DNSName" --output text)
+          echo "DNS_NAME=${DNS_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Rollback if health check failed
-        if: ${{ env.REQUEST != 0 }}
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: task-definition.json.old
-          service: Servico_API-Go
-          cluster: API-Go
-          wait-for-service-stability: true
+      - name: Health Check Dinâmico
+        id: health-check
+        run: |
+          ALB_ADDRESS="${{ steps.get-alb-dns.outputs.DNS_NAME }}"
+          HEALTH_CHECK_URL="http://${ALB_ADDRESS}/health"
+          echo "Aguardando 30 segundos para estabilização do serviço..."
+          sleep 30
+          echo "Executando Health Check em: ${HEALTH_CHECK_URL}"
+          if curl -f --connect-timeout 5 --max-time 10 "${HEALTH_CHECK_URL}"; then
+            echo "✅ Health Check OK!"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Health Check FALHOU!"
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback em caso de falha no Health Check
+        if: steps.health-check.outputs.status == 'failure'
+        run: |
+          echo "🚨 Health check falhou! Iniciando rollback..."
+          BACKUP_FILE=${{ steps.task-def-backup.outputs.backup_filename }}
+          # Verifica se o arquivo de backup realmente existe antes de tentar o rollback
+          if [ -f "$BACKUP_FILE" ]; then
+            echo "Usando o arquivo de backup: ${BACKUP_FILE}"
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER_NAME }} \
+              --service ${{ env.ECS_SERVICE_NAME }} \
+              --task-definition $(jq -r .taskDefinitionArn ${BACKUP_FILE}) \
+              --region ${{ env.AWS_REGION }}
+            echo "🔴 Rollback concluído."
+          else
+            echo "⚠️ Arquivo de backup não encontrado. Não foi possível fazer o rollback."
+          fi
+          exit 1

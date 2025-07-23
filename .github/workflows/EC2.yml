@@ -1,4 +1,4 @@
-name: Entrega continua
+name: Deploy Binario para EC2
 
 on:
   workflow_call:
@@ -7,49 +7,90 @@ jobs:
   EC2:
     runs-on: ubuntu-latest
     environment: PROD
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Download a Build Artifact
+    # Nomes dos recursos que o workflow precisa encontrar na AWS
+    env:
+      AWS_REGION: us-east-1
+      EC2_INSTANCE_TAG_NAME: api-go-dev-ec2-bastion
+      RDS_INSTANCE_ID: api-go-dev-rds-main
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Download do Artefato de Build
         uses: actions/download-artifact@v4
         with:
-          # Artifact name
           name: programa
 
-      - name: Verify files before deploy
+      - name: Configurando credenciais da AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ==========================================================
+      # NOVA ETAPA: Busca o IP público da instância EC2
+      # ==========================================================
+      - name: Obter IP Público da Instância EC2
+        id: get_ec2_ip
         run: |
-          echo "=== Files in workspace ==="
-          ls -la
-          echo "=== Checking if main binary exists ==="
-          if [ -f "main" ]; then
-            echo "✅ main binary found"
-          else
-            echo "❌ main binary not found"
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${{ env.EC2_INSTANCE_TAG_NAME }}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          if [ -z "$PUBLIC_IP" ]; then
+            echo "::error::Não foi possível encontrar o IP público da instância com a tag Name=${{ env.EC2_INSTANCE_TAG_NAME }}"
             exit 1
           fi
+          echo "REMOTE_HOST=${PUBLIC_IP}" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Staging server
+      # ==========================================================
+      # NOVA ETAPA: Busca os detalhes de conexão do RDS
+      # ==========================================================
+      - name: Obter Detalhes de Conexão do RDS
+        id: get_rds_details
+        run: |
+          DB_DETAILS=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ env.RDS_INSTANCE_ID }} \
+            --query "DBInstances[0].{Endpoint:Endpoint.Address, Port:Endpoint.Port, User:MasterUsername, DBName:DBName}" \
+            --output json)
+
+          echo "DB_HOST=$(echo $DB_DETAILS | jq -r .Endpoint)" >> $GITHUB_OUTPUT
+          echo "DB_PORT=$(echo $DB_DETAILS | jq -r .Port)" >> $GITHUB_OUTPUT
+          echo "DB_USER=$(echo $DB_DETAILS | jq -r .User)" >> $GITHUB_OUTPUT
+          echo "DB_NAME=$(echo $DB_DETAILS | jq -r .DBName)" >> $GITHUB_OUTPUT
+
+      - name: Fazer Deploy dos arquivos para o servidor
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_HOST: ${{ steps.get_ec2_ip.outputs.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: /home/${{ secrets.REMOTE_USER }}
           EXCLUDE: "postgres-data"
 
-      - name: executing remote ssh commands using password
+      - name: Executar comandos remotos na instância
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.REMOTE_HOST }}
+          host: ${{ steps.get_ec2_ip.outputs.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            export HOST=${{ secrets.DB_HOST_PROD }}
-            export DB_USER=${{ secrets.DB_USER_PROD }}
+            export HOST=${{ steps.get_rds_details.outputs.DB_HOST }}
+            export DB_USER=${{ steps.get_rds_details.outputs.DB_USER }}
             export DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}
-            export DB_NAME=${{ secrets.DB_NAME_PROD }}
-            export DB_PORT=${{ secrets.DB_PORT_PROD }}
+            export DB_NAME=${{ steps.get_rds_details.outputs.DB_NAME }}
+            export DB_PORT=${{ steps.get_rds_details.outputs.DB_PORT }}
             export PORT=8000
+
+            echo "Parando a aplicação antiga, se estiver rodando..."
+            pkill main || true
+
+            echo "Iniciando a nova versão da aplicação..."
             chmod +x main
             nohup ./main > nohup.out 2> nohup.err < /dev/null &
+
+            echo "Deploy concluído com sucesso!"
