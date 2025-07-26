@@ -46,7 +46,7 @@ variable "ami_id" {
 variable "docker_image" {
   description = "Docker image for the application"
   type        = string
-  default     = "bielvieira/go_ci:latest"
+  default     = "bielvieira/go_ci:30"
 }
 
 variable "container_port" {

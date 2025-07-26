@@ -1,6 +1,9 @@
 # Data source para região atual
 data "aws_region" "current" {}
 
+# Data source para obter Account ID
+data "aws_caller_identity" "current" {}
+
 # Security Group para ALB (reutiliza o SG da API com regras adicionais)
 resource "aws_security_group_rule" "alb_ingress_http" {
   type              = "ingress"
