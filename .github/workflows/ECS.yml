@@ -6,7 +6,7 @@ on:
 jobs:
   ECS:
     runs-on: ubuntu-latest
-    environment: PROD
+    environment: DEV
 
     env:
       AWS_REGION: us-east-1
@@ -22,25 +22,17 @@ jobs:
       - name: Configurando credenciais da AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Criar backup da Task Definition atual para Rollback
-        id: task-def-backup
-        run: |
-          BACKUP_FILE="task-definition-backup-${{ github.run_number }}.json"
-          echo "Criando backup em: ${BACKUP_FILE}"
-          # Baixa a Task Definition ATUALMENTE em produção
-          # Adicionado '|| true' para não falhar se a task def ainda não existir na primeira execução
-          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_FAMILY }} --query taskDefinition > ${BACKUP_FILE} || true
-          echo "backup_filename=${BACKUP_FILE}" >> $GITHUB_OUTPUT
-
-      - name: Obter a Definição da Tarefa Ativa da AWS
+      - name: Obter a Task Definition atual do ECS
         run: |
           echo "Buscando a Task Definition mais recente da família '${{ env.ECS_TASK_FAMILY }}'..."
-          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_FAMILY }} --query taskDefinition > task-definition.json
-          echo "Arquivo task-definition.json criado dinamicamente para esta execução."
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_FAMILY }} \
+            --query taskDefinition > task-definition.json
+          echo "Task Definition obtida com sucesso."
 
       - name: Preencher a nova imagem na Task Definition
         id: task-def
@@ -65,36 +57,30 @@ jobs:
           DNS_NAME=$(aws elbv2 describe-load-balancers --names ${{ env.ALB_NAME }} --region ${{ env.AWS_REGION }} --query "LoadBalancers[0].DNSName" --output text)
           echo "DNS_NAME=${DNS_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Health Check Dinâmico
+      - name: Health Check da aplicação
         id: health-check
         run: |
           ALB_ADDRESS="${{ steps.get-alb-dns.outputs.DNS_NAME }}"
           HEALTH_CHECK_URL="http://${ALB_ADDRESS}/health"
-          echo "Aguardando 30 segundos para estabilização do serviço..."
-          sleep 30
+          echo "Aguardando 60 segundos para estabilização do serviço..."
+          sleep 60
           echo "Executando Health Check em: ${HEALTH_CHECK_URL}"
-          if curl -f --connect-timeout 5 --max-time 10 "${HEALTH_CHECK_URL}"; then
-            echo "✅ Health Check OK!"
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Health Check FALHOU!"
-            echo "status=failure" >> $GITHUB_OUTPUT
-          fi
 
-      - name: Rollback em caso de falha no Health Check
-        if: steps.health-check.outputs.status == 'failure'
-        run: |
-          echo "🚨 Health check falhou! Iniciando rollback..."
-          BACKUP_FILE=${{ steps.task-def-backup.outputs.backup_filename }}
-          if [ -f "$BACKUP_FILE" ]; then
-            echo "Usando o arquivo de backup: ${BACKUP_FILE}"
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER_NAME }} \
-              --service ${{ env.ECS_SERVICE_NAME }} \
-              --task-definition $(jq -r .taskDefinitionArn ${BACKUP_FILE}) \
-              --region ${{ env.AWS_REGION }}
-            echo "🔴 Rollback concluído."
-          else
-            echo "⚠️ Arquivo de backup não encontrado. Não foi possível fazer o rollback."
-          fi
+          # Tentar health check com retry
+          for i in {1..5}; do
+            if curl -f --connect-timeout 10 --max-time 15 "${HEALTH_CHECK_URL}"; then
+              echo "✅ Health Check OK! (tentativa $i/5)"
+              echo "status=success" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "❌ Health Check falhou (tentativa $i/5)"
+              if [ $i -lt 5 ]; then
+                echo "Aguardando 30 segundos antes da próxima tentativa..."
+                sleep 30
+              fi
+            fi
+          done
+
+          echo "❌ Health Check falhou após 5 tentativas!"
+          echo "status=failure" >> $GITHUB_OUTPUT
           exit 1
