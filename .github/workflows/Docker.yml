@@ -4,51 +4,46 @@ on:
   workflow_call:
 
 jobs:
-
   docker:
     runs-on: ubuntu-latest
-    environment: PROD
+    environment: DEV
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: setup Docker Build
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Download a Build Artifact
-      uses: actions/download-artifact@v4
-      with:
-    # Artifact name
-        name: programa
-      
-    - name: Docker Login
-      uses: docker/login-action@v3
-      with:
-    # Username used to log against the Docker registry
-        username: ${{ secrets.USERNAME_DOCKER_HUB }}
-    # Password or personal access token used to log against the Docker registry
-        password: ${{ secrets.PASSWORD_DOCKER_HUB }}
-        
-    - name: Build and push Docker images
-      uses: docker/build-push-action@v5
-      with:
-    # Build's context is the set of files located in the specified PATH or URL
-        context: .
-    # Path to the Dockerfile
-        file: ./Dockerfile
-    # Push is a shorthand for --output=type=registry
-        push: true
-    # List of tags
-        tags: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}
-        
-    # Deploy information with environment variables
-    - name: Show deployment information
-      run: |
-        echo "✅ Imagem criada com sucesso: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"
-        echo ""
-        echo "🚀 Para executar o container em produção, use:"
-        echo "docker run -e HOST=localhost -e PORT=5432 -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} -p 8000:8000 ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"
-        echo ""
-        echo "📋 Ou usando docker-compose com arquivo .env:"
-        echo "DB_USER=${{ secrets.DB_USER }}"
-        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
-        echo "DB_NAME=${{ secrets.DB_NAME }}"
+      - name: setup Docker Build
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download a Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          # Artifact name
+          name: programa
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          # Username used to log against the Docker registry
+          username: ${{ secrets.USERNAME_DOCKER_HUB }}
+          # Password or personal access token used to log against the Docker registry
+          password: ${{ secrets.PASSWORD_DOCKER_HUB }}
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v5
+        with:
+          # Build's context is the set of files located in the specified PATH or URL
+          context: .
+          # Path to the Dockerfile
+          file: ./Dockerfile
+          # Push is a shorthand for --output=type=registry
+          push: true
+          # List of tags
+          tags: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}
+
+      # Deploy information with environment variables
+      - name: Show deployment information
+        run: |
+          echo "✅ Imagem criada com sucesso: ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"
+          echo ""
+          echo "🚀 Imagem disponível no Docker Hub"
+          echo "📋 Tag: ${{github.run_number}}"
+          echo "� Para usar a imagem: docker pull ${{ secrets.USERNAME_DOCKER_HUB }}/go_ci:${{github.run_number}}"

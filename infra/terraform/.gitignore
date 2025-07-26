@@ -1,0 +1,26 @@
+# Terraform files and directories
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+.terraformrc
+terraform.rc
+
+# Terraform variable files
+terraform.tfvars
+*.auto.tfvars
+
+# Terraform lock files
+.terraform.lock.hcl
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

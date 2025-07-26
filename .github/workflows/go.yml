@@ -9,15 +9,13 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    environment: PROD
+    environment: DEV
     env:
       # Variáveis para docker-compose e aplicação Go
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      DB_NAME: ${{ secrets.DB_NAME }}
-      DB_PORT: ${{ secrets.DB_PORT }}
-      # Configurações de conexão
-      HOST: localhost
+      DB_USER: ${{ vars.DB_USER_DEV }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD_DEV }}
+      DB_NAME: ${{ vars.DB_NAME_DEV }}
+      DB_PORT: ${{ vars.DB_PORT_DEV }}
     strategy:
       matrix:
         go_version: ["1.21", "1.20"]
@@ -75,15 +73,15 @@ jobs:
     uses: ./.github/workflows/Docker.yml
     secrets: inherit
 
-  # Deploy_EC2:
-  #   needs: docker
-  #   uses: ./.github/workflows/EC2.yml
-  #   secrets: inherit
-
-  Deploy_ECS:
+  Deploy_EC2:
     needs: docker
-    uses: ./.github/workflows/ECS.yml
+    uses: ./.github/workflows/EC2.yml
     secrets: inherit
+
+  # Deploy_ECS:
+  #   needs: docker
+  #   uses: ./.github/workflows/ECS.yml
+  #   secrets: inherit
 
   #LoadTest:
   # needs: docker

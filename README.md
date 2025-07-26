@@ -34,6 +34,28 @@ Um projeto completo demonstrando **Integração Contínua (CI/CD)** usando **Git
 - **Testes**: Go testing + Testify
 - **Linting**: golangci-lint
 - **Registry**: Docker Hub
+- **Infraestrutura**: Terraform (AWS EC2, RDS, Security Groups)
+- **Deploy**: Automated deployment para EC2/ECS/EKS
+
+## 🏢 Estratégias de Deploy
+
+### 1. **EC2 Strategy (Terraform)**
+- **Infraestrutura**: Terraform-managed
+- **Recursos**: EC2 + RDS + Security Groups
+- **Deploy**: SSH-based deployment
+- **Ambiente**: Development/Staging
+
+### 2. **ECS Strategy**
+- **Infraestrutura**: Container orchestration
+- **Recursos**: ECS Tasks + ALB + RDS
+- **Deploy**: Docker container deployment
+- **Ambiente**: Production-ready
+
+### 3. **EKS Strategy (Kubernetes)**
+- **Infraestrutura**: Kubernetes cluster
+- **Recursos**: Pods + Services + Ingress
+- **Deploy**: Kubernetes manifests
+- **Ambiente**: High-availability production
 
 ## 🚀 Workflows Implementados
 
@@ -146,6 +168,51 @@ No GitHub:
 1. Vá em **Actions** → **Go** workflow
 2. Clique **Run workflow** 
 3. Selecione branch e execute
+
+## 🏗️ Infraestrutura EC2 (Terraform)
+
+### **Criação da Infraestrutura**
+```bash
+# Criar toda a infraestrutura EC2 automaticamente
+./infra/scripts/create_ec2_terraform.sh
+
+# OU manualmente
+cd infra/terraform/environments/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+### **Recursos Criados**
+- **EC2 Instance**: `api-go-dev-ec2-bastion` (t2.micro)
+- **RDS Database**: `api-go-dev-rds-main` (PostgreSQL 13.21)
+- **Security Groups**: App (8000, 22) + Database (5432)
+- **Networking**: DB Subnet Group com VPC default
+
+### **Deploy Automatizado**
+O workflow `.github/workflows/EC2.yml` executa:
+1. 🔍 Busca IP público da instância EC2
+2. 🔍 Busca detalhes de conexão do RDS  
+3. 📦 Deploy do binário Go via SSH
+4. ⚙️ Configura variáveis de ambiente (senha: 123456789)
+5. 🚀 Inicia aplicação na porta 8000
+
+### **Configuração de Secrets**
+Configure os seguintes secrets no GitHub para ambiente **DEV**:
+```
+AWS_ACCESS_KEY_ID_DEV      # Credencial AWS
+AWS_SECRET_ACCESS_KEY_DEV  # Credencial AWS  
+DB_PASSWORD_DEV=123456789  # Senha do banco (conforme solicitado)
+SSH_PRIVATE_KEY            # Chave SSH para EC2
+REMOTE_USER                # Usuário SSH (ex: ec2-user)
+USERNAME_DOCKER_HUB        # Docker Hub username
+```
+
+### **Destruir Infraestrutura**
+```bash
+# Remover toda a infraestrutura
+./infra/scripts/destroy_ec2_terraform.sh
+```
 
 ## 📊 Monitoramento e Debug
 

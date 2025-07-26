@@ -6,7 +6,7 @@ on:
 jobs:
   EC2:
     runs-on: ubuntu-latest
-    environment: PROD
+    environment: DEV
 
     # Nomes dos recursos que o workflow precisa encontrar na AWS
     env:
@@ -26,8 +26,8 @@ jobs:
       - name: Configurando credenciais da AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
           aws-region: ${{ env.AWS_REGION }}
 
       # ==========================================================
@@ -67,21 +67,21 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           REMOTE_HOST: ${{ steps.get_ec2_ip.outputs.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          TARGET: /home/${{ secrets.REMOTE_USER }}
+          REMOTE_USER: ec2-user
+          TARGET: /home/ec2-user
           EXCLUDE: "postgres-data"
 
       - name: Executar comandos remotos na instância
         uses: appleboy/ssh-action@master
         with:
           host: ${{ steps.get_ec2_ip.outputs.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
+          username: ec2-user
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
             export HOST=${{ steps.get_rds_details.outputs.DB_HOST }}
             export DB_USER=${{ steps.get_rds_details.outputs.DB_USER }}
-            export DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD_DEV }}
             export DB_NAME=${{ steps.get_rds_details.outputs.DB_NAME }}
             export DB_PORT=${{ steps.get_rds_details.outputs.DB_PORT }}
             export PORT=8000

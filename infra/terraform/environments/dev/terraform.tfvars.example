@@ -1,0 +1,12 @@
+# Copie este arquivo para terraform.tfvars e ajuste os valores conforme necessário
+
+# AWS Region
+aws_region = "us-east-1"
+
+# Database Configuration
+db_name     = "root"
+db_username = "postgres"
+db_password = "123456789"
+
+# Nota: Para produção, use um sistema de gerenciamento de secrets
+# como AWS Secrets Manager ou HashiCorp Vault
