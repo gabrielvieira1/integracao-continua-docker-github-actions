@@ -61,7 +61,7 @@ jobs:
         id: health-check
         run: |
           ALB_ADDRESS="${{ steps.get-alb-dns.outputs.DNS_NAME }}"
-          HEALTH_CHECK_URL="http://${ALB_ADDRESS}/health"
+          HEALTH_CHECK_URL="http://${ALB_ADDRESS}:8000/health"
           echo "Aguardando 60 segundos para estabilização do serviço..."
           sleep 60
           echo "Executando Health Check em: ${HEALTH_CHECK_URL}"
