@@ -219,7 +219,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "🎯 Deploy Strategies"
-        DOCKER_IMAGE[🐳 Docker Image<br/>gabrielvieira/go_ci:latest]
+        DOCKER_IMAGE[🐳 Docker Image<br/>bielvieira/go_ci:30]
         GO_BINARY[📱 Go Binary<br/>./main executable]
     end
     

@@ -582,7 +582,7 @@ DB_USER=seu_usuario DB_PASSWORD=sua_senha DB_NAME=seu_banco docker-compose up -d
 ## Como executar a imagem de produção
 
 ```bash
-docker run -e HOST=localhost -e PORT=5432 -e DB_USER=seu_usuario -e DB_PASSWORD=sua_senha -e DB_NAME=seu_banco -p 8000:8000 gabrielvieira/go_ci:latest
+docker run -e HOST=localhost -e PORT=5432 -e DB_USER=seu_usuario -e DB_PASSWORD=sua_senha -e DB_NAME=seu_banco -p 8000:8000 bielvieira/go_ci:30
 ```
 
 ## Segurança

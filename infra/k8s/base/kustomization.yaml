@@ -1,13 +1,23 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-resources:
-  - deployment.yaml
-  - service.yaml
+namespace: go-api-dev
 
-commonLabels:
-  app: go-api
-  
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+
+labels:
+- pairs:
+    app: go-api
+  includeSelectors: true
+
+# NOTA: secretGenerator removido - será criado dinamicamente nos overlays
+# Local: usa host.docker.internal via secretGenerator local
+# AWS: usa RDS endpoint via kubectl create secret no workflow
+
 images:
-  - name: go-api
-    newTag: latest
+- name: go-api
+  newName: bielvieira/go_ci
+  newTag: "40"

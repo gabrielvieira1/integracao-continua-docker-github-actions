@@ -62,5 +62,5 @@ output "db_instance_port" {
 
 output "db_instance_id" {
   description = "RDS instance ID"
-  value       = module.rds.db_instance_id
+  value       = module.rds.db_instance_identifier
 }

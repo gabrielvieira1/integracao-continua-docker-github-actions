@@ -4,13 +4,15 @@ metadata:
   name: go-api-service
   labels:
     app: go-api
+    environment: aws
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"  # Network Load Balancer
 spec:
-  type: NodePort
+  type: LoadBalancer  # AWS - LoadBalancer para acesso externo
   selector:
     app: go-api
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-      nodePort: 30080
       name: http

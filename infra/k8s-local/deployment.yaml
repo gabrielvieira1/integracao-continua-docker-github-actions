@@ -5,6 +5,7 @@ metadata:
   labels:
     app: go-api
     component: backend
+    environment: local
 spec:
   replicas: 1
   strategy:
@@ -20,10 +21,11 @@ spec:
       labels:
         app: go-api
         component: backend
+        environment: local
     spec:
       containers:
       - name: go
-        image: go-api:latest
+        image: bielvieira/go_ci:40
         ports:
         - containerPort: 8000
           name: http

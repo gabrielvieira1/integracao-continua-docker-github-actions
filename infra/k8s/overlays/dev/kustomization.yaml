@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: go-api-dev
+
+resources:
+- namespace.yaml
+- service.yaml  # Service específico para AWS (LoadBalancer)
+- ../../base
+
+images:
+- name: go-api
+  newName: placeholder
+  newTag: placeholder
+
+labels:
+- pairs:
+    environment: dev
+  includeSelectors: true

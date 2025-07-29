@@ -5,12 +5,11 @@ metadata:
   labels:
     app: go-api
 spec:
-  type: NodePort
+  type: LoadBalancer  # AWS ELB
   selector:
     app: go-api
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-      nodePort: 30080
       name: http

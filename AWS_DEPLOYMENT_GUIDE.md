@@ -104,7 +104,7 @@ graph LR
   "containerDefinitions": [
     {
       "name": "Go",
-      "image": "gabrielvieira/go_ci:latest",
+      "image": "bielvieira/go_ci:30",
       "environment": [
         {"name": "HOST", "value": "${HOST}"},
         {"name": "USER", "value": "${USER}"},

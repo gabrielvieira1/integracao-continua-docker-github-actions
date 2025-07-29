@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "= 5.31.0"
+      version = ">= 5.92.0"
     }
   }
 }
@@ -101,6 +101,34 @@ module "ecs_infrastructure" {
     Project     = var.project_name
     Owner       = "Gabriel"
     Strategy    = "ECS"
+  }
+}
+
+# EKS Infrastructure for API Go (SEPARADA - nova VPC e RDS)
+module "eks_infrastructure" {
+  source = "../../modules/eks-cluster"
+
+  # Project Configuration
+  cluster_name = "${var.project_name}-${var.environment}-eks"
+  environment  = var.environment
+
+  # Network Configuration (nova VPC dedicada)
+  availability_zones = ["${var.aws_region}a", "${var.aws_region}b", "${var.aws_region}c"]
+  private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+  database_subnets   = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+
+  # Database Configuration (RDS separado para EKS)
+  db_name     = var.db_name
+  db_username = var.db_username
+  db_password = var.db_password
+
+  # Tags
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+    Owner       = "Gabriel"
+    Strategy    = "EKS"
   }
 }
 

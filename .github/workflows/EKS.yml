@@ -2,18 +2,17 @@ name: Deploy to EKS
 
 on:
   workflow_call:
-    inputs:
-      environment:
-        required: true
-        type: string
-      docker_image_tag:
-        required: true
-        type: string
 
 jobs:
   deploy-eks:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: DEV
+
+    # Nomes dos recursos que o workflow precisa encontrar na AWS (seguindo padrão EC2/ECS)
+    env:
+      AWS_REGION: us-east-1
+      EKS_CLUSTER_NAME: api-go-dev-eks
+      RDS_INSTANCE_ID: api-go-dev-eks-db # RDS específico do EKS
 
     steps:
       - name: Checkout code
@@ -22,15 +21,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.5"
-          terraform_wrapper: false
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
@@ -42,70 +35,198 @@ jobs:
         with:
           kustomize-version: "5.0.0"
 
-      - name: Deploy Infrastructure
-        working-directory: infra/terraform/environments/${{ inputs.environment }}
-        env:
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      # ==========================================================
+      # VALIDAÇÃO: Busca o cluster EKS existente na AWS
+      # ==========================================================
+      - name: Validate EKS Cluster Connection
         run: |
-          terraform init
-          terraform plan
-          terraform apply -auto-approve
+          echo "🔍 Validating connection to EKS cluster: ${{ env.EKS_CLUSTER_NAME }}"
+          aws sts get-caller-identity
 
-      - name: Get Infrastructure Outputs
-        working-directory: infra/terraform/environments/${{ inputs.environment }}
-        id: tf-output
-        run: |
-          echo "cluster_name=$(terraform output -raw cluster_name)" >> $GITHUB_OUTPUT
-          echo "db_endpoint=$(terraform output -raw db_endpoint)" >> $GITHUB_OUTPUT
-          echo "db_port=$(terraform output -raw db_port)" >> $GITHUB_OUTPUT
+          # Verificar se o cluster existe
+          CLUSTER_STATUS=$(aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --query 'cluster.status' --output text 2>/dev/null || echo "NOT_FOUND")
 
-      - name: Configure kubectl
-        run: |
-          aws eks update-kubeconfig --region us-east-1 --name ${{ steps.tf-output.outputs.cluster_name }}
+          if [ "$CLUSTER_STATUS" = "NOT_FOUND" ]; then
+            echo "❌ Error: EKS cluster '${{ env.EKS_CLUSTER_NAME }}' not found"
+            echo "💡 Please create the EKS infrastructure first using Terraform"
+            exit 1
+          elif [ "$CLUSTER_STATUS" != "ACTIVE" ]; then
+            echo "❌ Error: EKS cluster '${{ env.EKS_CLUSTER_NAME }}' is not ACTIVE (status: $CLUSTER_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ EKS cluster found and ACTIVE"
+
+          # Configure kubectl for the existing cluster
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+          # Test cluster connectivity
           kubectl cluster-info
+          kubectl get nodes
+
+      # ==========================================================
+      # BUSCA: Obter detalhes de conexão do RDS (mesmo padrão EC2)
+      # ==========================================================
+      - name: Obter Detalhes de Conexão do RDS
+        id: get_rds_details
+        run: |
+          echo "🔍 Buscando detalhes do RDS: ${{ env.RDS_INSTANCE_ID }}"
+
+          DB_DETAILS=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ env.RDS_INSTANCE_ID }} \
+            --query "DBInstances[0].{Endpoint:Endpoint.Address, Port:Endpoint.Port, User:MasterUsername, DBName:DBName}" \
+            --output json)
+
+          if [ "$DB_DETAILS" = "null" ]; then
+            echo "❌ Error: RDS instance '${{ env.RDS_INSTANCE_ID }}' not found"
+            exit 1
+          fi
+
+          echo "DB_HOST=$(echo $DB_DETAILS | jq -r .Endpoint)" >> $GITHUB_OUTPUT
+          echo "DB_PORT=$(echo $DB_DETAILS | jq -r .Port)" >> $GITHUB_OUTPUT
+          echo "DB_USER=$(echo $DB_DETAILS | jq -r .User)" >> $GITHUB_OUTPUT
+          echo "DB_NAME=$(echo $DB_DETAILS | jq -r .DBName)" >> $GITHUB_OUTPUT
+
+          echo "✅ RDS details retrieved successfully"
 
       - name: Create Namespace
         run: |
-          kubectl apply -f infra/k8s/overlays/${{ inputs.environment }}/namespace.yaml
+          # Apply namespace configuration from overlays (usando DEV como padrão)
+          NAMESPACE="go-api-dev"
+
+          if [ -f "infra/k8s/overlays/dev/namespace.yaml" ]; then
+            echo "📁 Applying namespace from overlay configuration..."
+            kubectl apply -f infra/k8s/overlays/dev/namespace.yaml
+          else
+            echo "📁 Creating namespace dynamically..."
+            kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+          fi
+
+          echo "✅ Namespace $NAMESPACE ready"
 
       - name: Create Database Secrets
-        env:
-          DB_HOST: ${{ steps.tf-output.outputs.db_endpoint }}
-          DB_PORT: ${{ steps.tf-output.outputs.db_port }}
-          DB_USER: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          kubectl delete secret database-config -n go-api-${{ inputs.environment }} --ignore-not-found
-          kubectl create secret generic database-config -n go-api-${{ inputs.environment }} \
-            --from-literal=host="$DB_HOST" \
-            --from-literal=port="$DB_PORT" \
-            --from-literal=username="$DB_USER" \
-            --from-literal=password="$DB_PASSWORD" \
-            --from-literal=dbname="$DB_NAME"
+          NAMESPACE="go-api-dev"
+
+          # Delete existing secrets if they exist and create new ones
+          kubectl delete secret database-config -n $NAMESPACE --ignore-not-found
+
+          echo "🔐 Creating database configuration secrets..."
+          kubectl create secret generic database-config -n $NAMESPACE \
+            --from-literal=host="${{ steps.get_rds_details.outputs.DB_HOST }}" \
+            --from-literal=port="${{ steps.get_rds_details.outputs.DB_PORT }}" \
+            --from-literal=username="${{ steps.get_rds_details.outputs.DB_USER }}" \
+            --from-literal=password="${{ secrets.DB_PASSWORD_DEV }}" \
+            --from-literal=dbname="${{ steps.get_rds_details.outputs.DB_NAME }}"
+
+          echo "✅ Database secrets created successfully"
 
       - name: Deploy Application
-        working-directory: infra/k8s/overlays/${{ inputs.environment }}
-        env:
-          IMAGE_TAG: ${{ inputs.docker_image_tag }}
+        working-directory: infra/k8s-aws
         run: |
-          kustomize edit set image go-api=${{ secrets.DOCKER_REGISTRY }}/go_ci:$IMAGE_TAG
+          # Use the same Docker Hub username pattern as other workflows
+          DOCKER_REGISTRY="${{ secrets.USERNAME_DOCKER_HUB }}"
+          IMAGE_TAG="${{ github.run_number }}"
+
+          # Validate required variables
+          if [ -z "$DOCKER_REGISTRY" ]; then
+            echo "❌ Error: USERNAME_DOCKER_HUB secret not set"
+            exit 1
+          fi
+
+          echo "🚀 Deploying application with image: $DOCKER_REGISTRY/go_ci:$IMAGE_TAG"
+
+          # Update image in kustomization for AWS
+          kustomize edit set image go-api=$DOCKER_REGISTRY/go_ci:$IMAGE_TAG
+
+          # Apply the configuration
           kubectl apply -k .
+
+          echo "✅ Application deployed successfully"
 
       - name: Wait for Deployment
         run: |
-          kubectl rollout status deployment/go-api -n go-api-${{ inputs.environment }} --timeout=300s
+          echo "⏳ Waiting for deployment to complete..."
+          kubectl rollout status deployment/go-api -n go-api-dev --timeout=300s
 
-      - name: Get Service Info
-        run: |
-          echo "🌐 Service Information:"
-          kubectl get svc -n go-api-${{ inputs.environment }}
-
-          echo "📊 Pod Status:"
-          kubectl get pods -n go-api-${{ inputs.environment }}
-
-          # Get LoadBalancer URL if available
-          LB_URL=$(kubectl get svc go-api-service -n go-api-${{ inputs.environment }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          if [ ! -z "$LB_URL" ]; then
-            echo "🚀 Application URL: http://$LB_URL"
+          if [ $? -eq 0 ]; then
+            echo "✅ Deployment completed successfully"
+          else
+            echo "❌ Deployment failed or timed out"
+            exit 1
           fi
+
+      - name: Verify Application Health
+        run: |
+          echo "🏥 Checking application health..."
+
+          # Wait a bit for the service to be ready
+          sleep 10
+
+          # Get pod status
+          echo "📊 Pod Status:"
+          kubectl get pods -n go-api-dev -l app=go-api
+
+          # Try to check health endpoint if LoadBalancer is available
+          LB_HOSTNAME=$(kubectl get svc go-api-service -n go-api-dev -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+
+          if [ ! -z "$LB_HOSTNAME" ]; then
+            echo "🌐 Load Balancer URL: http://$LB_HOSTNAME:8000"
+            
+            # Wait for LoadBalancer to be ready
+            echo "⏳ Waiting for LoadBalancer to be ready..."
+            for i in {1..30}; do
+              if curl -f -s "http://$LB_HOSTNAME:8000/health" > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+                echo "🎉 Application is healthy and accessible at: http://$LB_HOSTNAME:8000"
+                break
+              fi
+              echo "Attempt $i/30 - waiting for health endpoint..."
+              sleep 10
+            done
+          else
+            # If no LoadBalancer, try port-forward for health check  
+            echo "📡 No LoadBalancer found, testing via port-forward..."
+            kubectl port-forward -n go-api-dev svc/go-api-service 8000:8000 &
+            PORT_FORWARD_PID=$!
+            
+            sleep 5
+            
+            if curl -f -s "http://localhost:8000/health" > /dev/null 2>&1; then
+              echo "✅ Health check passed via port-forward!"
+            else
+              echo "⚠️  Health check failed, but deployment appears successful"
+              echo "📋 Trying to get pod logs for debugging..."
+              POD_NAME=$(kubectl get pods -n go-api-dev -l app=go-api -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+              if [ ! -z "$POD_NAME" ]; then
+                echo "📝 Last 20 lines of pod logs:"
+                kubectl logs -n go-api-dev $POD_NAME --tail=20
+              fi
+            fi
+            
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+          fi
+
+      - name: Get Service Information
+        run: |
+          echo "📋 === DEPLOYMENT SUMMARY ==="
+          echo "Environment: DEV"
+          echo "Image Tag: ${{ github.run_number }}"
+          echo "Cluster: ${{ env.EKS_CLUSTER_NAME }}"
+          echo ""
+
+          echo "🌐 Services:"
+          kubectl get svc -n go-api-dev
+          echo ""
+
+          echo "📊 Pods:"
+          kubectl get pods -n go-api-dev -l app=go-api
+          echo ""
+
+          echo "🔍 Deployment Status:"
+          kubectl get deployment go-api -n go-api-dev
+          echo ""
+
+          # Show recent events if there are issues
+          echo "📰 Recent Events:"
+          kubectl get events -n go-api-dev --sort-by='.lastTimestamp' | tail -10

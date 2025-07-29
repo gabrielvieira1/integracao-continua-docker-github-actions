@@ -5,8 +5,9 @@ metadata:
   labels:
     app: go-api
     component: backend
+    environment: aws
 spec:
-  replicas: 1
+  replicas: 2  # AWS - mais réplicas
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -20,10 +21,11 @@ spec:
       labels:
         app: go-api
         component: backend
+        environment: aws
     spec:
       containers:
       - name: go
-        image: go-api:latest
+        image: go-api:latest  # Será substituído dinamicamente
         ports:
         - containerPort: 8000
           name: http
@@ -58,19 +60,19 @@ spec:
         
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "256Mi"  # AWS - mais recursos
+            cpu: "200m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "1Gi"
+            cpu: "1000m"
         
-        # Health checks usando o endpoint /health
+        # Health checks para AWS
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 10
+          initialDelaySeconds: 90  # AWS - mais tempo
+          periodSeconds: 15
           timeoutSeconds: 5
           failureThreshold: 3
         
@@ -78,8 +80,8 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 5
+          initialDelaySeconds: 45
+          periodSeconds: 10
           timeoutSeconds: 3
           failureThreshold: 3
       

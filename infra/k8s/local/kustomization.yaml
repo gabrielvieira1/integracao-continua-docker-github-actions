@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: go-api-dev
+
+resources:
+- namespace.yaml
+- service.yaml  # Service local (NodePort)
+- ../base/deployment.yaml  # Deployment do base
+
+labels:
+- pairs:
+    app: go-api
+    environment: local
+  includeSelectors: true
+
+# Secret generator específico para uso local
+secretGenerator:
+- name: database-config
+  literals:
+  - host=host.docker.internal
+  - port=5432
+  - username=root
+  - password=root
+  - dbname=root
+
+images:
+- name: go-api
+  newName: bielvieira/go_ci
+  newTag: "40"

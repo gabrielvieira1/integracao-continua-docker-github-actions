@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: go-api-dev
+
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+
+labels:
+- pairs:
+    app: go-api
+    environment: aws
+    cloud: aws
+  includeSelectors: true
+
+# AWS: Secrets serão criados dinamicamente via kubectl no workflow
+# Não incluir secretGenerator aqui - será gerenciado pelo GitHub Actions
+
+images:
+- name: go-api
+  newName: placeholder
+  newTag: placeholder

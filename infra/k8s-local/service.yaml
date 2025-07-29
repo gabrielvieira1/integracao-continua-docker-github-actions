@@ -4,8 +4,9 @@ metadata:
   name: go-api-service
   labels:
     app: go-api
+    environment: local
 spec:
-  type: NodePort
+  type: NodePort  # Local - NodePort para acesso via localhost:30080
   selector:
     app: go-api
   ports:

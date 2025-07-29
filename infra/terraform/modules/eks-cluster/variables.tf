@@ -78,7 +78,7 @@ variable "node_desired_size" {
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
-  default     = "15.4"
+  default     = "15.8"
 }
 
 variable "db_instance_class" {

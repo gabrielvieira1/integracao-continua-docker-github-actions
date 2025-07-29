@@ -73,15 +73,15 @@ jobs:
     uses: ./.github/workflows/Docker.yml
     secrets: inherit
 
-  Deploy_EC2:
-    needs: docker
-    uses: ./.github/workflows/EC2.yml
-    secrets: inherit
+  # Deploy_EC2:
+  #   needs: docker
+  #   uses: ./.github/workflows/EC2.yml
+  #   secrets: inherit
 
-  Deploy_ECS:
-    needs: docker
-    uses: ./.github/workflows/ECS.yml
-    secrets: inherit
+  # Deploy_ECS:
+  #   needs: docker
+  #   uses: ./.github/workflows/ECS.yml
+  #   secrets: inherit
 
   #LoadTest:
   # needs: docker
@@ -89,22 +89,7 @@ jobs:
   # uses: ./.github/workflows/LoadTest.yml
   # secrets: inherit
 
-  # Deploy to EKS Production
-  # Deploy_EKS_Prod:
-  #   needs: docker
-  #   if: ${{ github.ref_name == 'main' }}
-  #   uses: ./.github/workflows/EKS.yml
-  #   with:
-  #     environment: prod
-  #     docker_image_tag: ${{ github.run_number }}
-  #   secrets: inherit
-
-  # # Deploy to EKS Staging
-  # Deploy_EKS_Staging:
-  #   needs: docker
-  #   if: ${{ github.ref_name == 'develop' }}
-  #   uses: ./.github/workflows/EKS.yml
-  #   with:
-  #     environment: staging
-  #     docker_image_tag: ${{ github.run_number }}
-  #   secrets: inherit
+  Deploy_EKS:
+    needs: docker
+    uses: ./.github/workflows/EKS.yml
+    secrets: inherit
