@@ -18,7 +18,8 @@ labels:
 # AWS: Secrets serão criados dinamicamente via kubectl no workflow
 # Não incluir secretGenerator aqui - será gerenciado pelo GitHub Actions
 
+# Configuração da imagem (será substituída pelo workflow)
 images:
 - name: go-api
-  newName: placeholder
-  newTag: placeholder
+  newName: bielvieira/go_ci
+  newTag: "40"
