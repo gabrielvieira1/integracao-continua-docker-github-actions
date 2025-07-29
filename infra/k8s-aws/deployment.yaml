@@ -60,29 +60,29 @@ spec:
         
         resources:
           requests:
-            memory: "256Mi"  # AWS - mais recursos
-            cpu: "200m"
+            memory: "128Mi"  # AWS - recursos reduzidos
+            cpu: "100m"
           limits:
-            memory: "1Gi"
-            cpu: "1000m"
+            memory: "512Mi"
+            cpu: "500m"
         
-        # Health checks para AWS
+        # Health checks para AWS - mais tolerantes
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 90  # AWS - mais tempo
-          periodSeconds: 15
-          timeoutSeconds: 5
-          failureThreshold: 3
+          initialDelaySeconds: 60  # Reduzido de 90s
+          periodSeconds: 20
+          timeoutSeconds: 10
+          failureThreshold: 5
         
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 45
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
+          initialDelaySeconds: 30  # Reduzido de 45s
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 5
       
       restartPolicy: Always

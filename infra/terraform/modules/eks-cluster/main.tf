@@ -136,6 +136,9 @@ module "rds" {
   password = var.db_password
   port     = var.db_port
 
+  # Disable AWS managed password - use provided password
+  manage_master_user_password = false
+
   multi_az               = var.environment == "prod"
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
   db_subnet_group_name   = module.vpc.database_subnet_group
