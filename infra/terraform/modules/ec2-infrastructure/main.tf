@@ -30,6 +30,16 @@ resource "aws_security_group_rule" "api_ingress_http" {
   security_group_id = aws_security_group.api.id
 }
 
+resource "aws_security_group_rule" "api_ingress_http_alb" {
+  type                     = "ingress"
+  from_port                = -1
+  to_port                  = -1
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.rds.id
+  description              = "DB application port RDS"
+  security_group_id        = aws_security_group.api.id
+}
+
 resource "aws_security_group_rule" "api_ingress_ssh" {
   type              = "ingress"
   from_port         = 22
@@ -40,34 +50,14 @@ resource "aws_security_group_rule" "api_ingress_ssh" {
   security_group_id = aws_security_group.api.id
 }
 
-resource "aws_security_group_rule" "api_egress_http" {
+resource "aws_security_group_rule" "api_egress_all" {
   type              = "egress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
+  from_port         = -1
+  to_port           = -1
+  protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "HTTP for package downloads"
+  description       = "All outbound traffic"
   security_group_id = aws_security_group.api.id
-}
-
-resource "aws_security_group_rule" "api_egress_https" {
-  type              = "egress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  description       = "HTTPS for package downloads"
-  security_group_id = aws_security_group.api.id
-}
-
-resource "aws_security_group_rule" "api_egress_postgres" {
-  type                     = "egress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.rds.id
-  description              = "PostgreSQL to RDS"
-  security_group_id        = aws_security_group.api.id
 }
 
 resource "aws_security_group_rule" "rds_ingress_postgres" {

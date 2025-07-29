@@ -16,21 +16,21 @@ resource "aws_lb" "main" {
 # Target Group
 resource "aws_lb_target_group" "main" {
   name        = "${var.project_name}-${var.environment}-tg-app"
-  port        = var.container_port
+  port        = 80 # Porta 80 conforme a imagem
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
 
   health_check {
     enabled             = true
-    healthy_threshold   = 2
+    healthy_threshold   = 5 # Conforme sua configuração funcional
     interval            = 30
     matcher             = "200"
     path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 10 # Aumentado de 5 para 10 segundos
-    unhealthy_threshold = 3  # Aumentado de 2 para 3 (mais tolerante)
+    timeout             = 5 # Conforme sua configuração funcional
+    unhealthy_threshold = 2 # Conforme sua configuração funcional
   }
 
   tags = merge(var.tags, {
@@ -41,7 +41,7 @@ resource "aws_lb_target_group" "main" {
 # Load Balancer Listener
 resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
-  port              = var.container_port
+  port              = "8000" # ALB Listener na porta 8000 conforme sua configuração AWS
   protocol          = "HTTP"
 
   default_action {
