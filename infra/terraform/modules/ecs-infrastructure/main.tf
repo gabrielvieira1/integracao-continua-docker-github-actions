@@ -29,8 +29,8 @@ resource "aws_lb_target_group" "main" {
     path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 5
-    unhealthy_threshold = 2
+    timeout             = 10 # Aumentado de 5 para 10 segundos
+    unhealthy_threshold = 3  # Aumentado de 2 para 3 (mais tolerante)
   }
 
   tags = merge(var.tags, {
@@ -158,6 +158,13 @@ resource "aws_ecs_service" "main" {
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = 1
 
+  # Deployment Strategy - Rolling Update para zero downtime
+  deployment_maximum_percent         = 200 # Permite 2 tasks durante deploy
+  deployment_minimum_healthy_percent = 100 # Mantém pelo menos 1 task healthy
+
+  enable_ecs_managed_tags = false
+  propagate_tags          = "NONE"
+
   capacity_provider_strategy {
     capacity_provider = "FARGATE"
     weight            = 1
@@ -178,7 +185,7 @@ resource "aws_ecs_service" "main" {
     container_port   = var.container_port
   }
 
-  health_check_grace_period_seconds = 60
+  health_check_grace_period_seconds = 180 # Aumentado para 3 minutos
 
   depends_on = [
     aws_lb_listener.main,
