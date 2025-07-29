@@ -52,7 +52,7 @@ variable "key_name" {
 variable "ami_id" {
   description = "AMI ID for EC2 instance"
   type        = string
-  default     = "ami-0e2c8caa4b6378d8c"
+  default     = "ami-08a6efd148b1f7504" # AMI que funciona
 }
 
 # ECS Configuration
@@ -79,11 +79,11 @@ variable "subnet_ids" {
   description = "Subnet IDs"
   type        = list(string)
   default = [
-    "subnet-047f0eb2f79b50fba",
-    "subnet-071855a4316fb4873",
-    "subnet-0135cdda8b88c08fd",
-    "subnet-04c15327b7ec37094",
-    "subnet-0812b12cfc18f7802",
-    "subnet-045075f748999034f"
+    "subnet-045075f748999034f", # us-east-1b - Subnet que funciona (primeira)
+    "subnet-047f0eb2f79b50fba", # us-east-1a
+    "subnet-071855a4316fb4873", # us-east-1c
+    "subnet-0135cdda8b88c08fd", # us-east-1d
+    "subnet-04c15327b7ec37094", # us-east-1e
+    "subnet-0812b12cfc18f7802"  # us-east-1f
   ]
 }

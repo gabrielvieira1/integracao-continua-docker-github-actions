@@ -123,7 +123,7 @@ resource "aws_instance" "bastion" {
   key_name      = var.key_name
 
   # Network Configuration
-  subnet_id                   = var.subnet_ids[0]
+  subnet_id                   = var.subnet_ids[0] # Primeira subnet da lista (que funciona)
   vpc_security_group_ids      = [aws_security_group.api.id]
   associate_public_ip_address = true
 
