@@ -14,20 +14,42 @@ Developer Code → GitHub → CI/CD Pipeline → Docker Registry → Production
 
 ## 📊 Componentes Principais
 
-### 🔧 **Tecnologias**
+### 🔧 **Tecnologias Core**
 
-- **Backend**: Go (Gin Framework)
-- **Database**: PostgreSQL
+- **Backend**: Go (Gin Framework) + GORM
+- **Database**: PostgreSQL 13.21
 - **Containerização**: Docker + Docker Compose
-- **CI/CD**: GitHub Actions
+- **CI/CD**: GitHub Actions (6 workflows)
 - **Registry**: Docker Hub
 - **Testes**: Go Testing + Testify
+- **Infraestrutura**: Terraform (3 módulos)
+- **Orquestração**: Kubernetes + Kustomize
 
-### 🔄 **Workflow Pipeline**
+### 🔄 **Workflows Implementados**
 
-1. **🧪 Test Job**: Testes automatizados + Linting
-2. **🔨 Build Job**: Compilação e geração de artefatos
-3. **🐳 Docker Job**: Containerização e push para registry
+1. **🧪 go.yml**: Pipeline principal (test + build + docker)
+2. **🐳 Docker.yml**: Build e push de imagens
+3. **🖥️ EC2.yml**: Deploy direto em instâncias EC2
+4. **🐳 ECS.yml**: Deploy em containers Fargate
+5. **☸️ EKS.yml**: Deploy em cluster Kubernetes
+6. **⚡ LoadTest.yml**: Testes de performance com Locust
+
+### 🏗️ **Infraestrutura como Código**
+
+#### **Terraform Modules**
+- **ec2-infrastructure**: EC2 + RDS + Security Groups
+- **ecs-infrastructure**: ECS + ALB + Target Groups + Auto-scaling
+- **eks-cluster**: EKS + Node Groups + IRSA + VPC
+
+#### **Ambientes**
+- **dev/**: Desenvolvimento (EC2 + RDS)
+- **ecs-dev/**: Containers em desenvolvimento
+- **staging/**: Homologação (EKS)
+- **prod/**: Produção (EKS com HA)
+
+#### **Kubernetes Manifests**
+- **base/**: Configurações base (deployment, service)
+- **overlays/**: Customizações por ambiente (dev, staging, prod)
 
 ### 🔐 **Segurança**
 
@@ -36,15 +58,17 @@ Developer Code → GitHub → CI/CD Pipeline → Docker Registry → Production
 - ✅ Variáveis de ambiente em runtime
 - ✅ Fail-safe: falha se configuração incorreta
 
-## 📈 **Métricas de Performance**
+## 📈 **Métricas de Performance e Escala**
 
-| Métrica | Valor | Status |
-|---------|-------|--------|
-| 🕐 Build Time | ~3-5 min | ✅ Otimizado |
-| 📦 Image Size | ~50MB | ✅ Compacto |
-| 🧪 Test Coverage | >80% | ✅ Adequado |
-| 🚀 Deploy Time | ~1-2 min | ✅ Rápido |
-| ⬆️ Success Rate | >95% | ✅ Confiável |
+| Métrica | EC2 | ECS | EKS | Status |
+|---------|-----|-----|-----|--------|
+| 🕐 Build Time | ~3-5 min | ~4-6 min | ~5-8 min | ✅ Otimizado |
+| 📦 Image Size | N/A | ~50MB | ~50MB | ✅ Compacto |
+| 🧪 Test Coverage | >80% | >80% | >80% | ✅ Adequado |
+| 🚀 Deploy Time | ~1-2 min | ~2-3 min | ~3-5 min | ✅ Rápido |
+| ⬆️ Success Rate | >95% | >98% | >98% | ✅ Confiável |
+| 🔄 Auto-scaling | ❌ Manual | ✅ Task-based | ✅ Pod-based | ✅ Dinâmico |
+| 💰 Custo | Baixo | Médio | Alto | ✅ Escalável |
 
 ## 🎨 **Benefícios Demonstrados**
 
@@ -69,53 +93,91 @@ Developer Code → GitHub → CI/CD Pipeline → Docker Registry → Production
 - **Economia**: Infraestrutura otimizada e automatizada
 - **Compliance**: Auditoria completa do pipeline
 
-## 🎯 **Casos de Uso**
+## 🎯 **Casos de Uso por Estratégia**
 
-### ✅ **Ideal Para:**
+### ✅ **EC2 Strategy - Ideal Para:**
 
-- Aplicações web modernas
-- APIs RESTful/GraphQL
-- Microsserviços
-- Projetos com equipes distribuídas
+- Aplicações legacy que precisam de controle total do servidor
+- Ambientes de desenvolvimento e prototipagem rápida  
+- Projetos com orçamento limitado
+- Deploy direto de binários sem containers
+- Aplicações que precisam de acesso ao sistema operacional
+
+### 🐳 **ECS Strategy - Ideal Para:**
+
+- Aplicações web modernas containerizadas
+- APIs RESTful/GraphQL com demanda variável
+- Projetos que precisam de auto-scaling sem complexidade
 - Ambientes que exigem deploy frequente
+- Aplicações stateless com load balancing
 
-### 🔧 **Adaptável Para:**
+### ☸️ **EKS Strategy - Ideal Para:**
 
-- **☸️ Amazon EKS**: Kubernetes orquestrado com Terraform
-- **🐳 Amazon ECS**: Containers gerenciados com auto-rollback
-- **🖥️ Amazon EC2**: Deploy direto com SSH e binary
-- **⚡ Load Testing**: Testes de carga automatizados com Locust
-- **🏗️ Infrastructure as Code**: Terraform para provisionamento
-- **🔄 Multi-environment**: Dev, staging, production workflows
+- Microsserviços complexos com orquestração avançada
+- Aplicações enterprise com alta disponibilidade
+- Projetos multi-tenant com isolamento
+- Ambientes que precisam de service mesh
+- Aplicações que requerem deployment Blue-Green
 
-## 📚 **Aprendizados e Demonstrações**
+### 🔧 **Adaptável Para Diferentes Cenários:**
 
-### 🎓 **Skills DevOps Demonstradas**
+- **🏢 Startups**: EC2 → ECS → EKS (evolução conforme crescimento)
+- **🏭 Enterprises**: EKS desde o início para escalabilidade
+- **🧪 Desenvolvimento**: Todos os ambientes para testes A/B
+- **📊 Data Science**: EKS para workloads de ML/AI
+- **🌐 E-commerce**: ECS para sazonalidade, EKS para Black Friday
 
-- [x] **Containerização** com Docker
-- [x] **CI/CD** com GitHub Actions
-- [x] **Infrastructure as Code** com Terraform
-- [x] **Kubernetes** com Amazon EKS
-- [x] **Container Orchestration** com Amazon ECS
-- [x] **Cloud Computing** com Amazon EC2
-- [x] **Load Testing** com Locust Framework
+## 📚 **Aprendizados e Demonstrações Técnicas**
+
+### 🎓 **Skills DevOps/SRE Demonstradas**
+
+- [x] **Containerização** com Docker e Docker Compose
+- [x] **CI/CD** com GitHub Actions (6 workflows especializados)
+- [x] **Infrastructure as Code** com Terraform (3 módulos)
+- [x] **Kubernetes** com Amazon EKS + Kustomize
+- [x] **Container Orchestration** com Amazon ECS Fargate
+- [x] **Cloud Computing** com Amazon EC2 + RDS
+- [x] **Load Testing** com Locust Framework (infraestrutura efêmera)
 - [x] **Automated Testing** (unit + integration + performance)
-- [x] **Security Best Practices** (secrets management)
-- [x] **Monitoring & Logging** (observabilidade)
+- [x] **Security Best Practices** (secrets management + IRSA)
+- [x] **Monitoring & Logging** (observabilidade multi-ambiente)
+- [x] **Auto-scaling** (ECS Tasks + Kubernetes HPA)
+- [x] **Blue-Green Deployment** capability via Kubernetes
 
-### 📖 **Conceitos Implementados**
+### 📖 **Conceitos Avançados Implementados**
 
-- [x] **Multi-Cloud Strategy** com AWS services
-- [x] **Kubernetes Orchestration** via EKS
-- [x] **Container Management** via ECS
-- [x] **Traditional VM Deployment** via EC2
-- [x] **Infrastructure as Code** com Terraform
-- [x] **Load Testing** automatizado
-- [x] **Blue-Green Deployment** capability
-- [x] **Auto-Rollback** em falhas
-- [x] **Immutable Infrastructure** com containers
-- [x] **Configuration Management** com env vars
+- [x] **Multi-Cloud Strategy** com 3 estratégias AWS distintas
+- [x] **Kubernetes Orchestration** via EKS com Node Groups
+- [x] **Container Management** via ECS com auto-rollback
+- [x] **Traditional VM Deployment** via EC2 com SSH
+- [x] **Infrastructure as Code** modular e reutilizável
+- [x] **Load Testing** automatizado com cleanup
+- [x] **Immutable Infrastructure** com containers versionados
+- [x] **Configuration Management** com environment variables
 - [x] **Workflow Orchestration** com workflow_call
+- [x] **GitOps Principles** com Infrastructure as Code
+- [x] **Service Mesh Ready** (preparado para Istio)
+- [x] **Observability** com health checks e métricas
+
+### 🏗️ **Arquiteturas Demonstradas**
+
+#### **🖥️ Monolith Strategy (EC2)**
+- Deploy direto de binário
+- RDS PostgreSQL dedicado  
+- Security Groups configurados
+- SSH-based deployment
+
+#### **🐳 Microservices Ready (ECS)**
+- Containerização completa
+- Load balancer automático
+- Auto-scaling baseado em métricas
+- Rolling deployments
+
+#### **☸️ Cloud Native (EKS)**
+- Kubernetes nativo
+- Pod auto-scaling
+- Service discovery
+- Ingress controller ready
 
 ## 🚀 **Próximos Passos**
 

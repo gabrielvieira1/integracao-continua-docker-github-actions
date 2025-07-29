@@ -5,23 +5,74 @@
 
 Um projeto completo demonstrando **Integração Contínua (CI/CD)** usando **GitHub Actions**, **Docker**, **PostgreSQL** e **Go (Gin)**. Este projeto implementa um pipeline automatizado com testes, build, containerização e deploy.
 
-## 🏗️ Arquitetura do Projeto
+## 🏗️ Estrutura do Projeto
 
 ```
-📦 Projeto
-├── 🔄 CI/CD Pipeline (GitHub Actions)
-│   ├── 🧪 Testes automatizados
-│   ├── 🔍 Linting de código
-│   ├── 🔨 Build da aplicação
-│   └── 🐳 Build e push do Docker
-├── 🐳 Containerização (Docker)
-│   ├── 📄 Dockerfile otimizado
-│   ├── 🐘 PostgreSQL container
-│   └── 🌐 Aplicação Go containerizada
-└── 🛡️ Segurança
-    ├── 🔐 GitHub Secrets
-    ├── 🚫 Zero credenciais hardcoded
-    └── ✅ Variáveis de ambiente seguras
+📦 integracao-continua-docker-github-actions/
+├── � .github/workflows/          # GitHub Actions workflows
+│   ├── 🧪 go.yml                 # Pipeline principal (test, build, docker)
+│   ├── 🐳 Docker.yml             # Build e push da imagem Docker
+│   ├── 🖥️ EC2.yml                # Deploy para Amazon EC2
+│   ├── 🐳 ECS.yml                # Deploy para Amazon ECS
+│   ├── ☸️ EKS.yml                # Deploy para Amazon EKS
+│   └── ⚡ LoadTest.yml           # Testes de carga com Locust
+├── 📁 infra/                     # Infraestrutura como código
+│   ├── 📁 terraform/             # Configurações Terraform
+│   │   ├── 📁 modules/           # Módulos reutilizáveis
+│   │   │   ├── �️ ec2-infrastructure/
+│   │   │   ├── 🐳 ecs-infrastructure/
+│   │   │   └── ☸️ eks-cluster/
+│   │   └── 📁 environments/      # Ambientes (dev, staging, prod)
+│   │       ├── 🧪 dev/
+│   │       ├── 🐳 ecs-dev/
+│   │       ├── 🎭 staging/
+│   │       └── 🚀 prod/
+│   ├── � k8s/                   # Manifests Kubernetes
+│   │   ├── 📁 base/              # Configurações base
+│   │   └── 📁 overlays/          # Customizações por ambiente
+│   ├── 📁 scripts/               # Scripts de automação
+│   │   ├── � create_unified_terraform.sh
+│   │   └── 💥 destroy_unified_terraform.sh
+│   ├── 🚀 deploy.sh              # Script de deploy
+│   └── 📖 README.md              # Documentação da infra
+├── � controllers/               # Controladores da API
+│   └── 🎮 controller.go
+├── 📁 database/                  # Configuração do banco
+│   └── 🗃️ db.go
+├── 📁 models/                    # Modelos de dados
+│   └── 👨‍🎓 alunos.go
+├── � routes/                    # Definição de rotas
+│   └── 🛣️ route.go
+├── 📁 templates/                 # Templates HTML
+│   ├── 🏠 index.html
+│   └── ❌ 404.html
+├── 📁 assets/                    # Arquivos estáticos
+│   ├── 🎨 index.css
+│   └── ❌ 404.css
+├── � volume/                    # Volumes persistentes
+│   ├── 💾 cache/
+│   ├── 📚 lib/
+│   ├── 📝 logs/
+│   ├── 🔄 state/
+│   └── ⏳ tmp/
+├── 🐳 Dockerfile                 # Configuração do container
+├── � docker-compose.yml         # Orquestração local
+├── � Makefile                   # Automação de tarefas
+├── 🗂️ go.mod                     # Dependências Go
+├── �️ go.sum                     # Lock file das dependências
+├── 🚀 main.go                    # Aplicação principal
+├── 🧪 main_test.go               # Testes da aplicação
+├── 📱 main                       # Binário compilado
+├── ⚙️ .env.example               # Exemplo de variáveis de ambiente
+├── 📋 .gitignore                 # Arquivos ignorados pelo Git
+├── 📜 LICENSE                    # Licença do projeto
+└── 📚 Documentação/
+    ├── 📖 README.md              # Este arquivo
+    ├── 🏗️ ARCHITECTURE.md        # Arquitetura detalhada
+    ├── ☁️ AWS_DEPLOYMENT_GUIDE.md # Guia de deploy AWS
+    ├── 🔐 DEPLOYMENT_STRATEGY.md  # Estratégias de deploy
+    ├── 📊 DIAGRAMS.md             # Como visualizar diagramas
+    └── 📋 EXECUTIVE_SUMMARY.md    # Resumo executivo
 ```
 
 ## 🔧 Stack Tecnológica
@@ -60,6 +111,7 @@ Um projeto completo demonstrando **Integração Contínua (CI/CD)** usando **Git
 ## 🚀 Workflows Implementados
 
 ### 1. **Workflow Principal (`go.yml`)**
+
 ```yaml
 Triggers: Push/PR em qualquer branch
 ┌─────────────────────────────────────┐
@@ -80,6 +132,7 @@ Triggers: Push/PR em qualquer branch
 ```
 
 ### 2. **Workflow Docker (`Docker.yml`)**
+
 ```yaml
 Trigger: Workflow call do go.yml
 ┌─────────────────────────────────────┐
@@ -89,6 +142,67 @@ Trigger: Workflow call do go.yml
 │ ├─ Build imagem Docker             │
 │ ├─ Push para Docker Hub            │
 │ └─ Mostra comandos de deploy       │
+└─────────────────────────────────────┘
+```
+
+### 3. **Workflow EC2 (`EC2.yml`)**
+
+```yaml
+Trigger: Workflow call ou manual
+┌─────────────────────────────────────┐
+│ 🖥️ JOB: EC2-DEPLOY                 │
+│ ├─ Configura credenciais AWS       │
+│ ├─ Busca informações da EC2        │
+│ ├─ Download do artifact Go         │
+│ ├─ Deploy via SSH                  │
+│ ├─ Configura variáveis ambiente    │
+│ └─ Inicia aplicação na porta 8000  │
+└─────────────────────────────────────┘
+```
+
+### 4. **Workflow ECS (`ECS.yml`)**
+
+```yaml
+Trigger: Workflow call ou manual
+┌─────────────────────────────────────┐
+│ 🐳 JOB: ECS-DEPLOY                 │
+│ ├─ Configura credenciais AWS       │
+│ ├─ Clona repositório infraestrutura│
+│ ├─ Executa Terraform apply         │
+│ ├─ Deploy container para ECS       │
+│ ├─ Health check da aplicação       │
+│ └─ Auto-rollback se necessário     │
+└─────────────────────────────────────┘
+```
+
+### 5. **Workflow EKS (`EKS.yml`)**
+
+```yaml
+Trigger: Workflow call ou manual
+┌─────────────────────────────────────┐
+│ ☸️ JOB: EKS-DEPLOY                  │
+│ ├─ Configura credenciais AWS       │
+│ ├─ Clona repositório Kubernetes    │
+│ ├─ Configura kubectl context       │
+│ ├─ Aplica manifests K8s            │
+│ ├─ Rolling update da aplicação     │
+│ └─ Verifica pods em execução       │
+└─────────────────────────────────────┘
+```
+
+### 6. **Workflow Load Test (`LoadTest.yml`)**
+
+```yaml
+Trigger: Schedule ou manual
+┌─────────────────────────────────────┐
+│ ⚡ JOB: LOAD-TEST                   │
+│ ├─ Configura credenciais AWS       │
+│ ├─ Destrói infraestrutura antiga   │
+│ ├─ Cria infraestrutura temporária  │
+│ ├─ Deploy da aplicação             │
+│ ├─ Executa teste de carga (Locust) │
+│ ├─ Coleta métricas de performance  │
+│ └─ Limpa recursos temporários      │
 └─────────────────────────────────────┘
 ```
 
@@ -169,49 +283,117 @@ No GitHub:
 2. Clique **Run workflow** 
 3. Selecione branch e execute
 
-## 🏗️ Infraestrutura EC2 (Terraform)
+## 🏗️ Infraestrutura Terraform Unificada
 
 ### **Criação da Infraestrutura**
-```bash
-# Criar toda a infraestrutura EC2 automaticamente
-./infra/scripts/create_ec2_terraform.sh
 
-# OU manualmente
+```bash
+# Criar toda a infraestrutura automaticamente (EC2 + ECS)
+./infra/scripts/create_unified_terraform.sh
+
+# OU manualmente por ambiente
 cd infra/terraform/environments/dev
 terraform init
 terraform plan
 terraform apply
 ```
 
-### **Recursos Criados**
+### **Recursos Criados por Módulo**
+
+#### 🖥️ **Módulo EC2 Infrastructure**
 - **EC2 Instance**: `api-go-dev-ec2-bastion` (t2.micro)
 - **RDS Database**: `api-go-dev-rds-main` (PostgreSQL 13.21)
 - **Security Groups**: App (8000, 22) + Database (5432)
 - **Networking**: DB Subnet Group com VPC default
 
-### **Deploy Automatizado**
-O workflow `.github/workflows/EC2.yml` executa:
-1. 🔍 Busca IP público da instância EC2
-2. 🔍 Busca detalhes de conexão do RDS  
-3. 📦 Deploy do binário Go via SSH
-4. ⚙️ Configura variáveis de ambiente (senha: 123456789)
-5. 🚀 Inicia aplicação na porta 8000
+#### 🐳 **Módulo ECS Infrastructure**
+- **ECS Cluster**: Fargate cluster para containers
+- **ECS Service**: Auto-scaling service com health checks
+- **Application Load Balancer**: Distribuição de tráfego
+- **Target Groups**: Health checks na porta 8000
+- **Task Definition**: Container specs e environment variables
 
-### **Configuração de Secrets**
-Configure os seguintes secrets no GitHub para ambiente **DEV**:
+#### ☸️ **Módulo EKS Cluster**
+- **EKS Cluster**: Kubernetes cluster gerenciado
+- **Node Groups**: Worker nodes para pods
+- **Service Account**: IRSA para acesso AWS
+- **Networking**: VPC e subnets otimizadas
+
+### **Ambientes Disponíveis**
+- **`dev/`**: Desenvolvimento com recursos mínimos
+- **`ecs-dev/`**: Ambiente ECS para testes de container
+- **`staging/`**: Ambiente de homologação
+- ****`prod/`**: Ambiente de produção
+
+### **Deploy Automatizado via GitHub Actions**
+
+O workflow correspondente executa:
+
+1. 🔍 Busca informações das instâncias AWS
+2. 🔍 Busca detalhes de conexão do RDS  
+3. 📦 Deploy do binário Go via SSH (EC2) ou container (ECS/EKS)
+4. ⚙️ Configura variáveis de ambiente 
+5. 🚀 Inicia aplicação na porta 8000
+6. ❤️ Executa health checks e auto-rollback se necessário
+
+### **Kubernetes Manifests (EKS)**
+
+Estrutura Kustomize para diferentes ambientes:
+
 ```
-AWS_ACCESS_KEY_ID_DEV      # Credencial AWS
-AWS_SECRET_ACCESS_KEY_DEV  # Credencial AWS  
-DB_PASSWORD_DEV=123456789  # Senha do banco (conforme solicitado)
-SSH_PRIVATE_KEY            # Chave SSH para EC2
-REMOTE_USER                # Usuário SSH (ex: ec2-user)
-USERNAME_DOCKER_HUB        # Docker Hub username
+📁 infra/k8s/
+├── 📁 base/                   # Configurações base
+│   ├── deployment.yaml       # Deployment da aplicação
+│   ├── service.yaml          # Service interno
+│   └── kustomization.yaml    # Base kustomization
+└── 📁 overlays/              # Customizações por ambiente
+    ├── 🧪 dev/               # Ambiente de desenvolvimento
+    ├── 🎭 staging/           # Ambiente de staging  
+    └── 🚀 prod/              # Ambiente de produção
+```
+
+### **Scripts de Automação**
+
+```bash
+# Criar infraestrutura unificada (todos os módulos)
+./infra/scripts/create_unified_terraform.sh
+
+# Destruir toda a infraestrutura
+./infra/scripts/destroy_unified_terraform.sh
+
+# Deploy específico (usado nos workflows)
+./infra/deploy.sh [ec2|ecs|eks] [dev|staging|prod]
+```
+
+### **Configuração de Secrets por Ambiente**
+
+Configure os seguintes secrets no GitHub:
+
+```bash
+# AWS Credentials (Repository Level)
+AWS_ACCESS_KEY_ID_DEV         # Credencial AWS para dev
+AWS_SECRET_ACCESS_KEY_DEV     # Credencial AWS para dev
+AWS_ACCESS_KEY_ID_PROD        # Credencial AWS para prod
+AWS_SECRET_ACCESS_KEY_PROD    # Credencial AWS para prod
+
+# Database Configuration (Environment Level)
+DB_PASSWORD_DEV=123456789     # Senha do banco dev
+DB_PASSWORD_PROD=secure_pass  # Senha do banco prod
+
+# SSH Keys (para deploy EC2)
+SSH_PRIVATE_KEY               # Chave SSH para EC2
+REMOTE_USER                   # Usuário SSH (ex: ec2-user)
+
+# Docker Registry
+USERNAME_DOCKER_HUB           # Docker Hub username
+PASSWORD_DOCKER_HUB           # Docker Hub password
 ```
 
 ### **Destruir Infraestrutura**
+
 ```bash
 # Remover toda a infraestrutura
-./infra/scripts/destroy_ec2_terraform.sh
+./infra/scripts/destroy_unified_terraform.sh
 ```
 
 ## 📊 Monitoramento e Debug

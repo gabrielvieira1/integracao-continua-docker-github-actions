@@ -4,9 +4,11 @@
 
 Este projeto implementa **três estratégias de deploy** diferentes na AWS, cada uma adequada para diferentes cenários e necessidades:
 
-- **☸️ EKS**: Para aplicações que precisam de orquestração avançada
-- **🐳 ECS**: Para containerização gerenciada sem complexidade do Kubernetes
-- **🖥️ EC2**: Para deploys simples e controle total da infraestrutura
+- **🖥️ EC2**: Para aplicações que precisam de controle total e deploy direto de binários
+- **🐳 ECS**: Para containerização gerenciada sem complexidade do Kubernetes  
+- **☸️ EKS**: Para aplicações que precisam de orquestração avançada e cloud-native
+
+Toda a infraestrutura é gerenciada via **Terraform** com módulos reutilizáveis e ambientes separados.
 
 ## ☸️ Amazon EKS Deployment
 
@@ -276,53 +278,98 @@ class WebsiteUser(HttpUser):
 ### 1️⃣ **Configurar Secrets no GitHub**
 
 ```bash
-# AWS Credentials
-gh secret set ID_CHAVE_ACESSO --body "AKIA..."
-gh secret set CHAVE_SECRETA --body "..."
+# AWS Credentials (Repository Level)
+gh secret set AWS_ACCESS_KEY_ID_DEV --body "AKIA..."
+gh secret set AWS_SECRET_ACCESS_KEY_DEV --body "..."
+gh secret set AWS_ACCESS_KEY_ID_PROD --body "AKIA..."
+gh secret set AWS_SECRET_ACCESS_KEY_PROD --body "..."
 
-# Database
-gh secret set DBHOST --body "your-db-host"
-gh secret set DBUSER --body "postgres"
-gh secret set DBPASSWORD --body "secure_password"
-gh secret set DBNAME --body "production_db"
-gh secret set DBPORT --body "5432"
+# Database Secrets (Environment Level)
+gh secret set DB_PASSWORD_DEV --body "123456789"
+gh secret set DB_PASSWORD_PROD --body "secure_password"
 
-# EC2 specific
+# Docker Registry
+gh secret set USERNAME_DOCKER_HUB --body "your_username"
+gh secret set PASSWORD_DOCKER_HUB --body "your_password"
+
+# EC2 SSH (for EC2 strategy)
 gh secret set SSH_PRIVATE_KEY --body "$(cat ~/.ssh/id_rsa)"
-gh secret set REMOTE_HOST --body "ec2-xx-xx-xx-xx.compute-1.amazonaws.com"
-gh secret set REMOTE_USER --body "ubuntu"
+gh secret set REMOTE_USER --body "ec2-user"
 ```
 
-### 2️⃣ **Workflow Principal Integrado**
+### 2️⃣ **Provisionar Infraestrutura**
+
+```bash
+# Criar toda a infraestrutura unificada (EC2 + ECS + EKS)
+cd infra/scripts/
+./create_unified_terraform.sh
+
+# OU criar módulos individuais
+cd infra/terraform/environments/dev/
+terraform init && terraform apply  # EC2 + RDS
+
+cd ../ecs-dev/
+terraform init && terraform apply  # ECS + ALB
+
+cd ../prod/
+terraform init && terraform apply  # EKS + Node Groups
+```
+
+### 3️⃣ **Workflow Principal Integrado**
+
+O pipeline principal detecta qual estratégia usar baseado na branch ou commit message:
 
 ```yaml
-name: AWS Multi-Strategy Deploy
+name: Multi-Strategy AWS Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      deploy_strategy:
+        description: 'Choose deployment strategy'
+        required: true
+        default: 'ec2'
+        type: choice
+        options:
+        - ec2
+        - ecs  
+        - eks
+        - all
 
 jobs:
-  test-and-build:
-    # ... job de teste e build
+  # Pipeline principal (sempre executa)
+  ci-pipeline:
+    uses: ./.github/workflows/go.yml
+    secrets: inherit
 
-  # Deploy strategies
+  # Deploy strategies (condicionais)
   deploy-ec2:
-    if: contains(github.event.head_commit.message, '[ec2]')
+    if: |
+      contains(github.event.head_commit.message, '[ec2]') ||
+      github.event.inputs.deploy_strategy == 'ec2' ||
+      github.event.inputs.deploy_strategy == 'all'
     uses: ./.github/workflows/EC2.yml
-    needs: [test-and-build]
+    needs: [ci-pipeline]
     secrets: inherit
 
   deploy-ecs:
-    if: contains(github.event.head_commit.message, '[ecs]')
+    if: |
+      contains(github.event.head_commit.message, '[ecs]') ||
+      github.event.inputs.deploy_strategy == 'ecs' ||
+      github.event.inputs.deploy_strategy == 'all'
     uses: ./.github/workflows/ECS.yml
-    needs: [test-and-build]
+    needs: [ci-pipeline]
     secrets: inherit
 
   deploy-eks:
-    if: contains(github.event.head_commit.message, '[eks]')
+    if: |
+      contains(github.event.head_commit.message, '[eks]') ||
+      github.event.inputs.deploy_strategy == 'eks' ||
+      github.event.inputs.deploy_strategy == 'all'
     uses: ./.github/workflows/EKS.yml
-    needs: [test-and-build]
+    needs: [ci-pipeline]
     secrets: inherit
 
   load-test:
@@ -331,14 +378,41 @@ jobs:
     secrets: inherit
 ```
 
-### 3️⃣ **Deploy com Commit Messages**
+### 4️⃣ **Deploy Específico por Commit Message**
 
 ```bash
-# Deploy específico por estratégia
+# Deploy em EC2 apenas
 git commit -m "feat: nova funcionalidade [ec2]"
+
+# Deploy em ECS apenas  
 git commit -m "feat: deploy para staging [ecs]"
+
+# Deploy em EKS para produção
 git commit -m "feat: deploy para produção [eks]"
-git commit -m "test: executar teste de carga [load-test]"
+
+# Deploy em todas as estratégias
+git commit -m "feat: deploy completo [all]"
+
+# Executar teste de carga
+git commit -m "test: validar performance [load-test]"
+```
+
+### 5️⃣ **Limpeza de Recursos**
+
+```bash
+# Destruir toda a infraestrutura
+cd infra/scripts/
+./destroy_unified_terraform.sh
+
+# OU destruir módulos individuais
+cd infra/terraform/environments/dev/
+terraform destroy  # Remove EC2 + RDS
+
+cd ../ecs-dev/
+terraform destroy  # Remove ECS + ALB
+
+cd ../prod/  
+terraform destroy  # Remove EKS + Node Groups
 ```
 
 ---
@@ -347,11 +421,14 @@ git commit -m "test: executar teste de carga [load-test]"
 
 Este projeto demonstra **competência completa em AWS** e **estratégias de deploy modernas**:
 
-✅ **Kubernetes (EKS)** - Orquestração enterprise  
-✅ **Containers (ECS)** - Simplicidade gerenciada  
-✅ **Virtual Machines (EC2)** - Controle total  
-✅ **Load Testing** - Validação de performance  
-✅ **Infrastructure as Code** - Terraform  
-✅ **CI/CD Integration** - GitHub Actions  
+✅ **EC2 Direct Deploy** - Controle total com deploy SSH  
+✅ **ECS Fargate** - Containerização serverless gerenciada  
+✅ **EKS Kubernetes** - Orquestração cloud-native enterprise  
+✅ **Load Testing** - Validação de performance automatizada  
+✅ **Infrastructure as Code** - Terraform modular e reutilizável  
+✅ **CI/CD Integration** - GitHub Actions com 6 workflows especializados  
+✅ **Multi-Environment** - Dev, staging, production separados  
+✅ **Auto-scaling** - Horizontal scaling em ECS e EKS  
+✅ **Security Best Practices** - IRSA, Security Groups, Secrets Management  
 
-**🏆 Portfolio pronto para demonstrar expertise DevOps/Cloud em qualquer entrevista!**
+**🏆 Portfolio completo demonstrando expertise DevOps/Cloud em múltiplas arquiteturas AWS!**

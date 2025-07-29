@@ -8,29 +8,57 @@ graph TB
         DEV[👨‍💻 Desenvolvedor]
         LOCAL[💻 Ambiente Local]
         MAKE[🛠️ Makefile]
-        DOCKER_LOCAL[🐳 Docker Local]
+        DOCKER_LOCAL[🐳 Docker Compose]
         DB_LOCAL[🐘 PostgreSQL Local]
+        TESTS[🧪 Testes Locais]
     end
 
-    subgraph "☁️ GitHub"
-        REPO[📁 Repositório]
+    subgraph "☁️ GitHub Repository"
+        REPO[📁 Repositório Main]
         ACTIONS[⚡ GitHub Actions]
         SECRETS[🔐 GitHub Secrets]
-        ARTIFACTS[📦 Artifacts]
+        ARTIFACTS[📦 Build Artifacts]
+        WORKFLOWS[📋 6 Workflows]
     end
 
-    subgraph "🏭 CI/CD Pipeline"
-        WORKFLOW_GO[🧪 Workflow Go]
-        WORKFLOW_DOCKER[🐳 Workflow Docker]
-        TESTS[🧪 Testes]
-        BUILD[🔨 Build]
-        LINT[🔍 Linting]
+    subgraph "🏭 CI/CD Pipeline Jobs"
+        WORKFLOW_GO[🧪 go.yml - Pipeline Principal]
+        WORKFLOW_DOCKER[🐳 Docker.yml - Build & Push]
+        WORKFLOW_EC2[🖥️ EC2.yml - Deploy EC2]
+        WORKFLOW_ECS[🐳 ECS.yml - Deploy ECS]
+        WORKFLOW_EKS[☸️ EKS.yml - Deploy EKS]
+        WORKFLOW_LOAD[⚡ LoadTest.yml - Performance]
     end
 
-    subgraph "🌐 Registry & Deploy"
-        DOCKER_HUB[🐳 Docker Hub]
-        PROD_ENV[🚀 Produção]
-        MONITORING[📊 Monitoramento]
+    subgraph "🌐 Container Registry"
+        DOCKER_HUB[🐳 Docker Hub<br/>gabrielvieira/go_ci]
+        IMAGE_TAGS[🏷️ Tagged Images<br/>main, dev, staging]
+    end
+
+    subgraph "☁️ AWS Infrastructure"
+        subgraph "🖥️ EC2 Environment"
+            EC2_INSTANCE[🖥️ EC2 Instance<br/>t2.micro]
+            RDS_DB[🗃️ RDS PostgreSQL<br/>13.21]
+            SEC_GROUPS[🛡️ Security Groups<br/>App + DB]
+        end
+        
+        subgraph "🐳 ECS Environment"
+            ECS_CLUSTER[🐳 ECS Fargate<br/>Cluster]
+            ALB[⚖️ Application<br/>Load Balancer]
+            ECS_SERVICE[� ECS Service<br/>Auto-scaling]
+        end
+        
+        subgraph "☸️ EKS Environment"
+            EKS_CLUSTER[☸️ EKS Cluster<br/>Kubernetes]
+            NODE_GROUPS[🖥️ Node Groups<br/>Worker Nodes]
+            K8S_PODS[🎯 Pods<br/>Application]
+        end
+    end
+
+    subgraph "🏗️ Infrastructure as Code"
+        TERRAFORM[🏗️ Terraform Modules]
+        KUSTOMIZE[☸️ Kustomize<br/>K8s Manifests]
+        SCRIPTS[📜 Automation Scripts]
     end
 
     %% Fluxo de desenvolvimento
@@ -46,8 +74,61 @@ graph TB
     SECRETS --> ACTIONS
 
     %% Pipeline CI/CD
-    ACTIONS --> WORKFLOW_GO
-    WORKFLOW_GO --> TESTS
+    ACTIONS --> WORKFLOWS
+    WORKFLOWS --> WORKFLOW_GO
+    WORKFLOW_GO --> WORKFLOW_DOCKER
+    WORKFLOW_DOCKER --> DOCKER_HUB
+    DOCKER_HUB --> IMAGE_TAGS
+
+    %% Deploy workflows
+    WORKFLOWS --> WORKFLOW_EC2
+    WORKFLOWS --> WORKFLOW_ECS
+    WORKFLOWS --> WORKFLOW_EKS
+    WORKFLOWS --> WORKFLOW_LOAD
+
+    %% Infrastructure provisioning
+    WORKFLOW_EC2 --> TERRAFORM
+    WORKFLOW_ECS --> TERRAFORM
+    WORKFLOW_EKS --> TERRAFORM
+    WORKFLOW_EKS --> KUSTOMIZE
+    
+    TERRAFORM --> EC2_INSTANCE
+    TERRAFORM --> RDS_DB
+    TERRAFORM --> SEC_GROUPS
+    TERRAFORM --> ECS_CLUSTER
+    TERRAFORM --> ALB
+    TERRAFORM --> ECS_SERVICE
+    TERRAFORM --> EKS_CLUSTER
+    TERRAFORM --> NODE_GROUPS
+    
+    KUSTOMIZE --> K8S_PODS
+
+    %% Deploy destinations
+    WORKFLOW_EC2 --> EC2_INSTANCE
+    WORKFLOW_ECS --> ECS_SERVICE
+    WORKFLOW_EKS --> K8S_PODS
+    WORKFLOW_LOAD --> EC2_INSTANCE
+
+    ARTIFACTS --> WORKFLOW_EC2
+    IMAGE_TAGS --> ECS_SERVICE
+    IMAGE_TAGS --> K8S_PODS
+
+    %% Scripts
+    SCRIPTS --> TERRAFORM
+
+    %% Styling
+    classDef devClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef githubClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef cicdClass fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef awsClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef infraClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class DEV,LOCAL,MAKE,DOCKER_LOCAL,DB_LOCAL,TESTS devClass
+    class REPO,ACTIONS,SECRETS,ARTIFACTS,WORKFLOWS githubClass
+    class WORKFLOW_GO,WORKFLOW_DOCKER,WORKFLOW_EC2,WORKFLOW_ECS,WORKFLOW_EKS,WORKFLOW_LOAD cicdClass
+    class DOCKER_HUB,IMAGE_TAGS,EC2_INSTANCE,RDS_DB,SEC_GROUPS,ECS_CLUSTER,ALB,ECS_SERVICE,EKS_CLUSTER,NODE_GROUPS,K8S_PODS awsClass
+    class TERRAFORM,KUSTOMIZE,SCRIPTS infraClass
+```
     WORKFLOW_GO --> BUILD
     WORKFLOW_GO --> LINT
     BUILD --> ARTIFACTS
@@ -70,7 +151,9 @@ graph TB
     class DOCKER_HUB,PROD_ENV,MONITORING deployClass
 ```
 
-## 🔄 Fluxo Detalhado do Pipeline CI/CD
+## 🔄 Fluxo Detalhado dos Workflows
+
+### 🧪 Workflow Principal (go.yml)
 
 ```mermaid
 flowchart TD
@@ -78,27 +161,22 @@ flowchart TD
     
     subgraph "🧪 Test Job"
         CHECKOUT1[📥 Checkout Code]
-        SETUP_GO[🔧 Setup Go Matrix]
+        SETUP_GO[🔧 Setup Go Matrix<br/>1.20 & 1.21]
         BUILD_APP[🔨 Build Go App]
-        BUILD_DB[🐘 Build PostgreSQL]
+        BUILD_DB[🐘 Build PostgreSQL Container]
         START_DB[▶️ Start Database]
         WAIT_DB[⏳ Wait DB Ready]
-        RUN_TESTS[🧪 Run Tests]
+        RUN_TESTS[🧪 Run Integration Tests]
     end
 
     subgraph "🔨 Build Job"
         CHECKOUT2[📥 Checkout Code]
-        COMPILE[⚙️ Compile Binary]
+        COMPILE[⚙️ Compile Go Binary]
         UPLOAD[📤 Upload Artifact]
     end
 
-    subgraph "🐳 Docker Job"
-        CHECKOUT3[📥 Checkout Code]
-        DOWNLOAD[📥 Download Artifact]
-        DOCKER_LOGIN[🔑 Docker Hub Login]
-        DOCKER_BUILD[🏗️ Build Docker Image]
-        DOCKER_PUSH[📤 Push to Registry]
-        DEPLOY_INFO[📋 Show Deploy Info]
+    subgraph "🐳 Docker Job Call"
+        CALL_DOCKER[🔄 Call Docker.yml Workflow]
     end
 
     SUCCESS([✅ Pipeline Success])
@@ -117,6 +195,95 @@ flowchart TD
     RUN_TESTS -->|❌ Tests Fail| FAIL
     
     CHECKOUT2 --> COMPILE
+    COMPILE --> UPLOAD
+    
+    UPLOAD --> CALL_DOCKER
+    CALL_DOCKER --> SUCCESS
+
+    %% Styling
+    classDef testClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef buildClass fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef dockerClass fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef startClass fill:#f1f8e9,stroke:#558b2f,stroke-width:3px
+    classDef endClass fill:#ffebee,stroke:#c62828,stroke-width:3px
+
+    class CHECKOUT1,SETUP_GO,BUILD_APP,BUILD_DB,START_DB,WAIT_DB,RUN_TESTS testClass
+    class CHECKOUT2,COMPILE,UPLOAD buildClass
+    class CALL_DOCKER dockerClass
+    class START startClass
+    class SUCCESS,FAIL endClass
+```
+
+### � Workflows de Deploy
+
+```mermaid
+flowchart LR
+    subgraph "🎯 Deploy Strategies"
+        DOCKER_IMAGE[🐳 Docker Image<br/>gabrielvieira/go_ci:latest]
+        GO_BINARY[📱 Go Binary<br/>./main executable]
+    end
+    
+    subgraph "🖥️ EC2 Deployment"
+        EC2_WORKFLOW[📋 EC2.yml]
+        EC2_SSH[🔑 SSH Deploy]
+        EC2_INSTANCE[�️ EC2 Instance<br/>Direct binary execution]
+        EC2_RDS[🗃️ RDS PostgreSQL<br/>Database connection]
+    end
+    
+    subgraph "🐳 ECS Deployment"
+        ECS_WORKFLOW[📋 ECS.yml]
+        ECS_TERRAFORM[🏗️ Terraform Apply]
+        ECS_SERVICE[� ECS Fargate Service<br/>Container orchestration]
+        ECS_ALB[⚖️ Application Load Balancer]
+    end
+    
+    subgraph "☸️ EKS Deployment"
+        EKS_WORKFLOW[📋 EKS.yml]
+        EKS_KUBECTL[☸️ kubectl apply]
+        EKS_PODS[🎯 Kubernetes Pods<br/>Container orchestration]
+        EKS_INGRESS[🌐 Ingress Controller]
+    end
+    
+    subgraph "⚡ Load Testing"
+        LOAD_WORKFLOW[📋 LoadTest.yml]
+        TEMP_INFRA[🏗️ Temporary Infrastructure]
+        LOCUST_TEST[🐍 Locust Performance Test]
+        CLEANUP[💥 Resource Cleanup]
+    end
+
+    %% Connections
+    GO_BINARY --> EC2_SSH
+    EC2_WORKFLOW --> EC2_SSH
+    EC2_SSH --> EC2_INSTANCE
+    EC2_INSTANCE --> EC2_RDS
+    
+    DOCKER_IMAGE --> ECS_SERVICE
+    ECS_WORKFLOW --> ECS_TERRAFORM
+    ECS_TERRAFORM --> ECS_SERVICE
+    ECS_SERVICE --> ECS_ALB
+    
+    DOCKER_IMAGE --> EKS_PODS
+    EKS_WORKFLOW --> EKS_KUBECTL
+    EKS_KUBECTL --> EKS_PODS
+    EKS_PODS --> EKS_INGRESS
+    
+    LOAD_WORKFLOW --> TEMP_INFRA
+    TEMP_INFRA --> LOCUST_TEST
+    LOCUST_TEST --> CLEANUP
+
+    %% Styling
+    classDef imageClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef ec2Class fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef ecsClass fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef eksClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef loadClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class DOCKER_IMAGE,GO_BINARY imageClass
+    class EC2_WORKFLOW,EC2_SSH,EC2_INSTANCE,EC2_RDS ec2Class
+    class ECS_WORKFLOW,ECS_TERRAFORM,ECS_SERVICE,ECS_ALB ecsClass
+    class EKS_WORKFLOW,EKS_KUBECTL,EKS_PODS,EKS_INGRESS eksClass
+    class LOAD_WORKFLOW,TEMP_INFRA,LOCUST_TEST,CLEANUP loadClass
+```
     COMPILE --> UPLOAD
     
     UPLOAD --> CHECKOUT3
@@ -141,46 +308,194 @@ flowchart TD
     class SUCCESS,FAIL endClass
 ```
 
-## 🏭 Infraestrutura de Containers
+## �️ Infraestrutura como Código
+
+### 🏭 Terraform Modules Architecture
 
 ```mermaid
 graph TB
-    subgraph "🖥️ Ambiente de Desenvolvimento"
-        subgraph "🐳 Docker Compose Local"
-            APP_LOCAL[🚀 Go App Container<br/>Port: 8000]
-            DB_LOCAL[🐘 PostgreSQL<br/>Port: 5432]
-            PGADMIN_LOCAL[🔧 PgAdmin<br/>Port: 54321]
+    subgraph "� infra/terraform/modules/"
+        subgraph "�🖥️ ec2-infrastructure"
+            EC2_MAIN[📄 main.tf<br/>EC2 + RDS + Security Groups]
+            EC2_VARS[⚙️ variables.tf<br/>AMI, Subnets, DB Config]
+            EC2_OUT[📤 outputs.tf<br/>Instance IP, RDS Endpoint]
         end
-        ENV_LOCAL[📄 .env file<br/>Local credentials]
+        
+        subgraph "🐳 ecs-infrastructure"
+            ECS_MAIN[📄 main.tf<br/>ECS + ALB + Target Groups]
+            ECS_VARS[⚙️ variables.tf<br/>Container Config, Image]
+            ECS_OUT[📤 outputs.tf<br/>ALB DNS, Service ARN]
+        end
+        
+        subgraph "☸️ eks-cluster"
+            EKS_MAIN[📄 main.tf<br/>EKS + Node Groups + IRSA]
+            EKS_VARS[⚙️ variables.tf<br/>K8s Version, Node Config]
+            EKS_OUT[📤 outputs.tf<br/>Cluster Endpoint, Config]
+        end
     end
 
-    subgraph "☁️ GitHub Actions Environment"
-        subgraph "🧪 Test Environment"
-            RUNNER[🏃‍♂️ Ubuntu Runner]
-            DB_CI[🐘 PostgreSQL Container<br/>Test Database]
-            GO_TEST[🧪 Go Test Process]
-        end
-        SECRETS_CI[🔐 GitHub Secrets<br/>CI credentials]
+    subgraph "📁 infra/terraform/environments/"
+        DEV_ENV[🧪 dev/<br/>Development Environment]
+        ECS_DEV[🐳 ecs-dev/<br/>ECS Development] 
+        STAGING_ENV[🎭 staging/<br/>Staging Environment]
+        PROD_ENV[🚀 prod/<br/>Production Environment]
     end
 
-    subgraph "🌐 Production Registry"
-        DOCKER_HUB_REG[🐳 Docker Hub<br/>Image Registry]
+    subgraph "☸️ infra/k8s/"
+        subgraph "📁 base/"
+            K8S_DEPLOY[📄 deployment.yaml<br/>App Deployment]
+            K8S_SVC[📄 service.yaml<br/>Internal Service]
+            K8S_KUST[📄 kustomization.yaml<br/>Base Configuration]
+        end
+        
+        subgraph "📁 overlays/"
+            K8S_DEV[🧪 dev/<br/>Dev Customizations]
+            K8S_STAGING[🎭 staging/<br/>Staging Customizations]
+            K8S_PROD[🚀 prod/<br/>Prod Customizations]
+        end
+    end
+
+    subgraph "� infra/scripts/"
+        CREATE_SCRIPT[🔧 create_unified_terraform.sh<br/>Provision All Infrastructure]
+        DESTROY_SCRIPT[💥 destroy_unified_terraform.sh<br/>Cleanup All Resources]
+        DEPLOY_SCRIPT[🚀 deploy.sh<br/>Environment-specific Deploy]
+    end
+
+    %% Module relationships
+    DEV_ENV --> EC2_MAIN
+    DEV_ENV --> EC2_VARS
+    ECS_DEV --> ECS_MAIN
+    ECS_DEV --> ECS_VARS
+    STAGING_ENV --> EKS_MAIN
+    STAGING_ENV --> EKS_VARS
+    PROD_ENV --> EKS_MAIN
+    PROD_ENV --> EKS_VARS
+
+    %% Kubernetes relationships
+    K8S_DEV --> K8S_DEPLOY
+    K8S_STAGING --> K8S_DEPLOY
+    K8S_PROD --> K8S_DEPLOY
+    K8S_DEV --> K8S_SVC
+    K8S_STAGING --> K8S_SVC
+    K8S_PROD --> K8S_SVC
+
+    %% Script relationships
+    CREATE_SCRIPT --> DEV_ENV
+    CREATE_SCRIPT --> ECS_DEV
+    CREATE_SCRIPT --> STAGING_ENV
+    DESTROY_SCRIPT --> DEV_ENV
+    DESTROY_SCRIPT --> ECS_DEV
+    DESTROY_SCRIPT --> STAGING_ENV
+
+    %% Styling
+    classDef moduleClass fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef envClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef k8sClass fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef scriptClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class EC2_MAIN,EC2_VARS,EC2_OUT,ECS_MAIN,ECS_VARS,ECS_OUT,EKS_MAIN,EKS_VARS,EKS_OUT moduleClass
+    class DEV_ENV,ECS_DEV,STAGING_ENV,PROD_ENV envClass
+    class K8S_DEPLOY,K8S_SVC,K8S_KUST,K8S_DEV,K8S_STAGING,K8S_PROD k8sClass
+    class CREATE_SCRIPT,DESTROY_SCRIPT,DEPLOY_SCRIPT scriptClass
+```
+
+### 🐳 Container Environments
+
+```mermaid
+graph TB
+    subgraph "🖥️ Desenvolvimento Local"
+        subgraph "🐳 Docker Compose Stack"
+            APP_LOCAL[🚀 Go App Container<br/>Port: 8000<br/>Volume: ./volume]
+            DB_LOCAL[🐘 PostgreSQL 13<br/>Port: 5432<br/>Persistent Volume]
+            PGADMIN_LOCAL[🔧 PgAdmin 4<br/>Port: 54321<br/>Web Interface]
+        end
+        ENV_LOCAL[📄 .env file<br/>Local environment variables]
+        MAKEFILE[🛠️ Makefile<br/>Development automation]
+    end
+
+    subgraph "☁️ GitHub Actions CI"
+        subgraph "🧪 Test Environment" 
+            RUNNER[🏃‍♂️ Ubuntu 22.04 Runner]
+            DB_CI[🐘 PostgreSQL Service<br/>Test Database Container]
+            GO_TEST[🧪 Go Test Matrix<br/>Go 1.20 & 1.21]
+        end
+        SECRETS_CI[🔐 GitHub Secrets<br/>CI/CD credentials]
+        ARTIFACTS[📦 Build Artifacts<br/>Compiled Go binary]
+    end
+
+    subgraph "🌐 Container Registry"
+        DOCKER_HUB_REG[🐳 Docker Hub Registry<br/>gabrielvieira/go_ci]
         subgraph "📦 Image Layers"
-            UBUNTU[🐧 Ubuntu Base]
-            GO_BINARY[⚙️ Go Binary]
-            CONFIG[⚙️ Runtime Config]
+            UBUNTU_BASE[🐧 Ubuntu 22.04 Base]
+            GO_BINARY[⚙️ Go Binary Executable]
+            APP_CONFIG[⚙️ Application Config]
+            RUNTIME_DEPS[📚 Runtime Dependencies]
         end
     end
 
-    subgraph "🚀 Production Environment"
-        PROD_CONTAINER[🐳 Production Container<br/>Your Go App]
-        PROD_DB[🐘 Production Database<br/>PostgreSQL]
-        LOAD_BALANCER[⚖️ Load Balancer<br/>Optional]
+    subgraph "☁️ AWS Production Environments"
+        subgraph "🖥️ EC2 Direct Deploy"
+            EC2_INSTANCE[�️ EC2 t2.micro<br/>Direct binary execution]
+            RDS_POSTGRES[�️ RDS PostgreSQL 13<br/>Managed database]
+        end
+        
+        subgraph "🐳 ECS Fargate"
+            ECS_CLUSTER[🐳 ECS Cluster<br/>Serverless containers]
+            ALB_ECS[⚖️ Application Load Balancer<br/>Traffic distribution]
+            ECS_TASKS[📋 ECS Tasks<br/>Auto-scaling containers]
+        end
+        
+        subgraph "☸️ EKS Kubernetes"
+            EKS_CLUSTER[☸️ EKS Cluster<br/>Managed Kubernetes]
+            NODE_GROUPS[🖥️ Worker Node Groups<br/>t3.medium instances]
+            PODS[🎯 Application Pods<br/>Kubernetes deployments]
+        end
     end
 
-    %% Connections Development
+    %% Development flow
     ENV_LOCAL --> APP_LOCAL
     ENV_LOCAL --> DB_LOCAL
+    APP_LOCAL --> DB_LOCAL
+    DB_LOCAL --> PGADMIN_LOCAL
+    MAKEFILE --> APP_LOCAL
+
+    %% CI flow
+    SECRETS_CI --> RUNNER
+    RUNNER --> DB_CI
+    RUNNER --> GO_TEST
+    GO_TEST --> DB_CI
+    RUNNER --> ARTIFACTS
+
+    %% Registry flow  
+    ARTIFACTS --> DOCKER_HUB_REG
+    UBUNTU_BASE --> DOCKER_HUB_REG
+    GO_BINARY --> DOCKER_HUB_REG
+    APP_CONFIG --> DOCKER_HUB_REG
+    RUNTIME_DEPS --> DOCKER_HUB_REG
+
+    %% Production deployments
+    ARTIFACTS --> EC2_INSTANCE
+    EC2_INSTANCE --> RDS_POSTGRES
+    
+    DOCKER_HUB_REG --> ECS_TASKS
+    ECS_TASKS --> ALB_ECS
+    ECS_CLUSTER --> ECS_TASKS
+    
+    DOCKER_HUB_REG --> PODS
+    EKS_CLUSTER --> NODE_GROUPS
+    NODE_GROUPS --> PODS
+
+    %% Styling
+    classDef localClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef ciClass fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef registryClass fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef awsClass fill:#ffebee,stroke:#c62828,stroke-width:2px
+
+    class APP_LOCAL,DB_LOCAL,PGADMIN_LOCAL,ENV_LOCAL,MAKEFILE localClass
+    class RUNNER,DB_CI,GO_TEST,SECRETS_CI,ARTIFACTS ciClass
+    class DOCKER_HUB_REG,UBUNTU_BASE,GO_BINARY,APP_CONFIG,RUNTIME_DEPS registryClass
+    class EC2_INSTANCE,RDS_POSTGRES,ECS_CLUSTER,ALB_ECS,ECS_TASKS,EKS_CLUSTER,NODE_GROUPS,PODS awsClass
+```
     APP_LOCAL --> DB_LOCAL
     DB_LOCAL --> PGADMIN_LOCAL
 
