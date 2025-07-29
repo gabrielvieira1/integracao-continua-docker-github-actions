@@ -1,9 +1,12 @@
 #!/bin/bash
 
 # Script MESTRE para criar TODA a infraestrutura (EC2 + RDS + ECS + ALB)
-# Uma única execução cria tudo: Security Groups, EC2, RDS, ECS, Cluster, ALB, Task Definition e Services
+# Cria nova infraestrutura usando módulos Terraform
 
 set -e
+
+echo "🚀 Script de Infraestrutura: CRIAR INFRAESTRUTURA"
+echo "================================================="
 
 echo "🚀 Criando TODA a infraestrutura: EC2 + RDS + ECS + ALB"
 echo "======================================================="
@@ -86,15 +89,35 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🌐 URLS DE ACESSO:"
     echo "=================="
     EC2_URL=$(terraform output -raw ec2_application_url 2>/dev/null || echo "não disponível")
-    ECS_URL=$(terraform output -raw ecs_application_url 2>/dev/null || echo "não disponível")
+    ECS_ALB_DNS=$(terraform output -raw alb_dns_name 2>/dev/null || echo "não disponível")
     
-    echo "🖥️  EC2 Strategy: $EC2_URL"
-    echo "🐳 ECS Strategy: $ECS_URL"
+    # URLs corretas baseadas na configuração atual
+    if [ "$EC2_URL" != "não disponível" ]; then
+        echo "🖥️  EC2 Strategy: $EC2_URL"
+    else
+        echo "🖥️  EC2 Strategy: não disponível"
+    fi
+    
+    if [ "$ECS_ALB_DNS" != "não disponível" ]; then
+        echo "🐳 ECS Strategy: http://$ECS_ALB_DNS:8000"
+    else
+        echo "🐳 ECS Strategy: não disponível"
+    fi
+    
     echo ""
     echo "🔍 HEALTH CHECKS:"
     echo "================="
-    echo "🖥️  EC2 Health: $EC2_URL/health"
-    echo "🐳 ECS Health: $ECS_URL/health"
+    if [ "$EC2_URL" != "não disponível" ]; then
+        echo "🖥️  EC2 Health: $EC2_URL/health"
+    else
+        echo "🖥️  EC2 Health: não disponível"
+    fi
+    
+    if [ "$ECS_ALB_DNS" != "não disponível" ]; then
+        echo "🐳 ECS Health: http://$ECS_ALB_DNS:8000/health"
+    else
+        echo "🐳 ECS Health: não disponível"
+    fi
     
     echo ""
     echo "📋 INFORMAÇÕES PARA GITHUB ACTIONS:"

@@ -26,7 +26,7 @@ resource "aws_security_group_rule" "api_ingress_http" {
   to_port           = 8000
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "API Go application port"
+  description       = "API Go application port (EC2 and ALB)"
   security_group_id = aws_security_group.api.id
 }
 
@@ -80,16 +80,6 @@ resource "aws_security_group_rule" "rds_ingress_postgres" {
   security_group_id        = aws_security_group.rds.id
 }
 
-# DB Subnet Group
-resource "aws_db_subnet_group" "main" {
-  name       = "${var.project_name}-${var.environment}-sng-private"
-  subnet_ids = var.subnet_ids
-
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-sng-private"
-  })
-}
-
 # RDS Instance
 resource "aws_db_instance" "main" {
   identifier = "${var.project_name}-${var.environment}-rds-main"
@@ -109,8 +99,8 @@ resource "aws_db_instance" "main" {
 
   # Network Configuration
   vpc_security_group_ids = [aws_security_group.rds.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  publicly_accessible    = false
+  # Usar subnet group padrão da VPC ao invés de criar um customizado
+  publicly_accessible = false
 
   # Backup Configuration - TOTALMENTE DESABILITADO
   backup_retention_period = 0

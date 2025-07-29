@@ -1,25 +1,29 @@
+# Development Environment Configuration for EC2 Strategy
 terraform {
   required_version = ">= 1.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "= 5.31.0"
+      version = "~> 5.0"
     }
   }
 }
 
 provider "aws" {
   region = var.aws_region
+
   default_tags {
     tags = {
-      Environment = var.environment
-      Project     = var.project_name
+      Environment = "dev"
+      Project     = "api-go"
       ManagedBy   = "terraform"
+      Owner       = "gabriel"
     }
   }
 }
 
-# Data sources para descobrir recursos existentes
+# Data sources
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -40,8 +44,8 @@ module "ec2_infrastructure" {
   source = "../../modules/ec2-infrastructure"
 
   # Project Configuration
-  project_name = var.project_name
-  environment  = var.environment
+  project_name = "api-go"
+  environment  = "dev"
   aws_region   = var.aws_region
 
   # Network Configuration
@@ -60,8 +64,8 @@ module "ec2_infrastructure" {
 
   # Tags
   tags = {
-    Environment = var.environment
-    Project     = var.project_name
+    Environment = "dev"
+    Project     = "api-go"
     Owner       = "Gabriel"
     Strategy    = "EC2"
   }
@@ -72,8 +76,8 @@ module "ecs_infrastructure" {
   source = "../../modules/ecs-infrastructure"
 
   # Project Configuration
-  project_name = var.project_name
-  environment  = var.environment
+  project_name = "api-go"
+  environment  = "dev"
   aws_region   = var.aws_region
 
   # Network Configuration  
@@ -97,21 +101,9 @@ module "ecs_infrastructure" {
 
   # Tags
   tags = {
-    Environment = var.environment
-    Project     = var.project_name
+    Environment = "dev"
+    Project     = "api-go"
     Owner       = "Gabriel"
     Strategy    = "ECS"
   }
 }
-
-# Recursos descobertos na AWS:
-# VPC ID: vpc-0674e4dd5302a9d90
-# Security Group API: sg-02f21b4cb4a134711 (api-go-dev-sg-app)
-# Security Group RDS: sg-08bb193b6d1a9eb8c (api-go-dev-sg-db)
-# EC2 Instance: i-0d93bd4cbe3f996cc
-# RDS Instance: api-go-dev-rds-main
-# ECS Cluster: api-go-dev-ecs-cluster
-# ECS Service: api-go-dev-ecs-svc-app
-# Task Definition: api-go-dev-taskdef-app
-# ALB: api-go-dev-alb-app
-# Target Groups: api-go-dev-tg-app

@@ -1,20 +1,3 @@
-# Data source para região atual
-data "aws_region" "current" {}
-
-# Data source para obter Account ID
-data "aws_caller_identity" "current" {}
-
-# Security Group para ALB (reutiliza o SG da API com regras adicionais)
-resource "aws_security_group_rule" "alb_ingress_http" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  description       = "HTTP access for ALB"
-  security_group_id = var.existing_api_sg_id
-}
-
 # Application Load Balancer (usa o mesmo SG da API)
 resource "aws_lb" "main" {
   name               = "${var.project_name}-${var.environment}-alb-app"
@@ -58,7 +41,7 @@ resource "aws_lb_target_group" "main" {
 # Load Balancer Listener
 resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
-  port              = "80"
+  port              = var.container_port
   protocol          = "HTTP"
 
   default_action {
@@ -159,7 +142,7 @@ resource "aws_ecs_task_definition" "main" {
         }
       ]
 
-      # SEM logConfiguration - logs desabilitados
+      # SEM logConfiguration - logs desabilitados para evitar problemas de conectividade
     }
   ])
 

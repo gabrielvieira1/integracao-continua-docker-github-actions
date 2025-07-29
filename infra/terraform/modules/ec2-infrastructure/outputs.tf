@@ -19,8 +19,8 @@ output "ec2_public_dns" {
 }
 
 output "rds_endpoint" {
-  description = "RDS instance endpoint"
-  value       = aws_db_instance.main.endpoint
+  description = "RDS instance endpoint (hostname only, without port)"
+  value       = split(":", aws_db_instance.main.endpoint)[0]
 }
 
 output "rds_port" {
@@ -41,9 +41,4 @@ output "security_group_api_id" {
 output "security_group_rds_id" {
   description = "Security Group ID for RDS"
   value       = aws_security_group.rds.id
-}
-
-output "db_subnet_group_name" {
-  description = "DB subnet group name"
-  value       = aws_db_subnet_group.main.name
 }

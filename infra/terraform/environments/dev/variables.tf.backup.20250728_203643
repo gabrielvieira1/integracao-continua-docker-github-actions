@@ -4,19 +4,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "project_name" {
-  description = "Project name for resource naming"
-  type        = string
-  default     = "api-go"
-}
-
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "dev"
-}
-
-# Database Configuration (valores do RDS atual)
 variable "db_name" {
   description = "Database name"
   type        = string
@@ -52,38 +39,18 @@ variable "key_name" {
 variable "ami_id" {
   description = "AMI ID for EC2 instance"
   type        = string
-  default     = "ami-0e2c8caa4b6378d8c"
+  default     = "ami-0e2c8caa4b6378d8c" # Amazon Linux 2023
 }
 
 # ECS Configuration
 variable "docker_image" {
   description = "Docker image for the application"
   type        = string
-  default     = "bielvieira/go_ci:35"
+  default     = "bielvieira/go_ci:30"
 }
 
 variable "container_port" {
   description = "Port that the container exposes"
   type        = number
   default     = 8000
-}
-
-# Network Configuration (valores descobertos)
-variable "vpc_id" {
-  description = "VPC ID"
-  type        = string
-  default     = "vpc-0674e4dd5302a9d90"
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs"
-  type        = list(string)
-  default = [
-    "subnet-047f0eb2f79b50fba",
-    "subnet-071855a4316fb4873",
-    "subnet-0135cdda8b88c08fd",
-    "subnet-04c15327b7ec37094",
-    "subnet-0812b12cfc18f7802",
-    "subnet-045075f748999034f"
-  ]
 }
